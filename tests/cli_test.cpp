@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
                          process.exitCode() == code);
         };
         run({"--paths"}, 0);
-        PSYCHE_CHECK(output.contains("psyche data"));
+        PSYCHE_CHECK(output.contains("dados do psyche"));
         PSYCHE_CHECK(!QFile::exists(d + "/data/settings.json"));
         run({"--help"}, 0);
         PSYCHE_CHECK(output.contains("--appid") && output.contains("--health") &&

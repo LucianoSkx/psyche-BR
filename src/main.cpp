@@ -47,7 +47,7 @@ int main(int argc, char** argv) {
     if (qEnvironmentVariableIsEmpty("QT_QUICK_BACKEND"))
         qputenv("QT_QUICK_BACKEND", "software");
     if (!initializeBundledFonts()) {
-        qCritical("Unable to initialize bundled fonts.");
+        qCritical("Não foi possível iniciar as fontes embutidas.");
         return 1;
     }
     QQuickStyle::setStyle("Basic");

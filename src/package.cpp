@@ -21,21 +21,21 @@ static void write(const QString& path, const QByteArray& data) {
     if (!f.open(QIODevice::WriteOnly) ||
         !f.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner) ||
         f.write(data) != data.size() || !f.commit())
-        fail("Failed to write: " + path);
+        fail("Falha ao gravar: " + path);
 }
 static QString id(const QString& s) {
     if (!QRegularExpression("^[1-9][0-9]{0,9}$").match(s).hasMatch() ||
         s.toULongLong() > 4294967295ULL)
-        fail("Invalid ID: " + s);
+        fail("ID inválido: " + s);
     return s;
 }
 static void key(Package& p, QString depot, QString value) {
     id(depot);
     if (!QRegularExpression("^[a-fA-F0-9]{64}$").match(value).hasMatch())
-        fail("Invalid key for depot " + depot);
+        fail("Chave inválida para o depot " + depot);
     value = value.toLower();
     if (p.keys.contains(depot) && p.keys[depot] != value)
-        fail("Conflicting keys in package");
+        fail("Chaves conflitantes no pacote");
     p.depots.insert(depot);
     p.keys[depot] = value;
 }
@@ -63,7 +63,7 @@ static void readLua(Package& p, const QString& source) {
             QString close = "]" + longMatch.captured(1) + "]";
             auto end = source.indexOf(close, i + longMatch.capturedLength());
             if (end < 0)
-                fail("Unterminated Lua block");
+                fail("Bloco Lua não terminado");
             if (!comment)
                 tokens.append({QString(), true});
             i = end + close.size();
@@ -93,7 +93,7 @@ static void readLua(Package& p, const QString& source) {
                     value += c;
             }
             if (!closed)
-                fail("Unterminated Lua string");
+                fail("String Lua não terminada");
             tokens.append({value, true});
             continue;
         }
@@ -153,7 +153,7 @@ static void noSymlinks(const QString& path) {
     for (const auto& part : QFileInfo(path).absoluteFilePath().split('/', Qt::SkipEmptyParts)) {
         current = QDir(current).filePath(part);
         if (QFileInfo(current).isSymLink())
-            fail("Symbolic link not allowed: " + current);
+            fail("Link simbólico não permitido: " + current);
     }
 }
 void Package::setGameName(const QString& name) {
@@ -186,17 +186,17 @@ QString Package::summary() const {
     QStringList a = apps.values(), d = depots.values();
     a.sort();
     d.sort();
-    return QString("Apps: %1\nDepots: %2\nKeys: %3")
-        .arg(a.isEmpty() ? "none" : a.join(", "), d.isEmpty() ? "none" : d.join(", "))
+    return QString("Apps: %1\nDepots: %2\nChaves: %3")
+        .arg(a.isEmpty() ? "nenhum" : a.join(", "), d.isEmpty() ? "nenhum" : d.join(", "))
         .arg(keys.size());
 }
 Package readLuaPackage(const QByteArray& data) {
     if (data.size() > 8 * 1024 * 1024)
-        fail("Lua exceeds the 8 MiB limit");
+        fail("Lua excede o limite de 8 MiB");
     Package package;
     readLua(package, QString::fromUtf8(data));
     if (package.apps.isEmpty() && package.depots.isEmpty())
-        fail("No recognized configuration in Lua");
+        fail("Nenhuma configuração reconhecida no Lua");
     return package;
 }
 Package readPackage(const QString& path) {
@@ -207,50 +207,50 @@ Package readPackage(const QString& path) {
     archive_read_support_filter_none(ar.get());
     if (archive_read_open_filename(ar.get(), QFile::encodeName(path).constData(), 16384) !=
         ARCHIVE_OK)
-        fail("Could not open ZIP");
+        fail("Não foi possível abrir o ZIP");
     archive_entry* entry;
     qint64 total = 0;
     int count = 0, result;
     while ((result = archive_read_next_header(ar.get(), &entry)) == ARCHIVE_OK) {
         if (++count > 1000)
-            fail("Too many files in ZIP");
+            fail("Arquivos demais no ZIP");
         QString name = QString::fromUtf8(archive_entry_pathname(entry));
         if (name.startsWith('/') || name.contains('\\') || name.split('/').contains("..") ||
             name.contains(':') || archive_entry_symlink(entry) || archive_entry_hardlink(entry))
-            fail("Unsafe path in ZIP");
+            fail("Caminho inseguro no ZIP");
         if (archive_entry_filetype(entry) == AE_IFDIR)
             continue;
         if (archive_entry_filetype(entry) != AE_IFREG)
-            fail("File type not allowed");
+            fail("Tipo de arquivo não permitido");
         QByteArray data;
         char buffer[16384];
         la_ssize_t n;
         while ((n = archive_read_data(ar.get(), buffer, sizeof(buffer))) > 0) {
             total += n;
             if (total > 32 * 1024 * 1024 || data.size() + n > 8 * 1024 * 1024)
-                fail("ZIP exceeds size limit");
+                fail("ZIP excede o limite de tamanho");
             data.append(buffer, n);
         }
         if (n < 0)
-            fail("Damaged or encrypted ZIP");
+            fail("ZIP danificado ou criptografado");
         QString base = QFileInfo(name).fileName();
         if (base == "download.lua" || base == "spliced-tickets.lua") {
             continue; // Skip plugin files; they are installed separately.
         } else if (base.endsWith(".yaml") || base.endsWith(".yml")) {
             auto root = YAML::Load(data.toStdString());
             if (!root.IsMap())
-                fail("YAML must be a mapping");
+                fail("YAML precisa ser um mapeamento");
             for (auto field : {"AdditionalApps", "AdditionalDepots"})
                 if (root[field]) {
                     if (!root[field].IsSequence())
-                        fail("Invalid YAML list");
+                        fail("Lista YAML inválida");
                     for (auto v : root[field])
                         (QString(field) == "AdditionalApps" ? p.apps : p.depots)
                             .insert(id(QString::fromStdString(v.as<std::string>())));
                 }
             if (root["DecryptionKeys"]) {
                 if (!root["DecryptionKeys"].IsMap())
-                    fail("Invalid DecryptionKeys");
+                    fail("DecryptionKeys inválido");
                 for (auto v : root["DecryptionKeys"])
                     key(p,
                         QString::fromStdString(v.first.as<std::string>()),
@@ -261,25 +261,25 @@ Package readPackage(const QString& path) {
         }
     }
     if (result != ARCHIVE_EOF)
-        fail("Incomplete ZIP");
+        fail("ZIP incompleto");
     if (p.apps.isEmpty() && p.depots.isEmpty())
-        fail("No recognized configuration in ZIP");
+        fail("Nenhuma configuração reconhecida no ZIP");
     if (p.mainAppId.isEmpty() && p.apps.size() == 1)
         p.mainAppId = *p.apps.begin();
-    p.setGameName(p.mainAppId.isEmpty() ? "Imported game" : "AppID " + p.mainAppId);
+    p.setGameName(p.mainAppId.isEmpty() ? "Jogo importado" : "AppID " + p.mainAppId);
     return p;
 }
 void restoreBackupContents(const QString& directory, const QString& backup, bool recoverLegacy) {
     if (directory.trimmed().isEmpty() || backup.trimmed().isEmpty())
-        fail("Destination and backup must be explicit");
+        fail("Destino e backup precisam ser explícitos");
     noSymlinks(directory);
     noSymlinks(backup);
     if (!QFileInfo(directory).isDir())
-        fail("Destination unavailable");
+        fail("Destino indisponível");
     noSymlinks(backup + "/files.txt");
     QFile manifest(backup + "/files.txt");
     if (!manifest.open(QIODevice::ReadOnly))
-        fail("Backup unavailable");
+        fail("Backup indisponível");
     struct RestoreFile {
         QString path;
         bool existed;
@@ -291,30 +291,30 @@ void restoreBackupContents(const QString& directory, const QString& backup, bool
         QString relative = line.mid(2);
         if ((!line.startsWith("1 ") && !line.startsWith("0 ")) || seen.contains(relative) ||
             (relative != "config.yaml" && relative != ".psyche-library.json"))
-            fail("Invalid backup");
+            fail("Backup inválido");
         seen.insert(relative);
         QString dest = QDir(directory).filePath(relative);
         noSymlinks(dest);
         if (QFileInfo(dest).exists() && !QFileInfo(dest).isFile())
-            fail("Destination is not a file");
+            fail("Destino não é um arquivo");
         bool existed = line.startsWith("1 ");
         QByteArray data;
         if (existed) {
             noSymlinks(backup + "/" + relative);
             QFile f(backup + "/" + relative);
             if (!f.open(QIODevice::ReadOnly))
-                fail("Incomplete backup");
+                fail("Backup incompleto");
             data = f.readAll();
         }
         files.append({dest, existed, data});
     }
     if (!seen.contains("config.yaml"))
-        fail("Invalid backup");
+        fail("Backup inválido");
     if (recoverLegacy && !seen.contains(".psyche-library.json")) {
         auto path = QDir(directory).filePath(".psyche-library.json");
         noSymlinks(path);
         if (QFileInfo(path).exists() && !QFileInfo(path).isFile())
-            fail("Invalid library metadata destination");
+            fail("Destino de metadados da biblioteca inválido");
         files.append({path, false, {}});
     }
     // Load the full backup before touching destination files.
@@ -322,10 +322,10 @@ void restoreBackupContents(const QString& directory, const QString& backup, bool
         noSymlinks(file.path);
         if (file.existed) {
             if (!QDir().mkpath(QFileInfo(file.path).absolutePath()))
-                fail("Failed to restore directory");
+                fail("Falha ao restaurar diretório");
             write(file.path, file.data);
         } else if (QFile::exists(file.path) && !QFile::remove(file.path))
-            fail("Failed to restore file");
+            fail("Falha ao restaurar arquivo");
     }
 }
 static QByteArray fillEmptyField(QByteArray text,
@@ -338,7 +338,7 @@ static QByteArray fillEmptyField(QByteArray text,
         if (entry.first.as<std::string>() == field.toStdString()) {
             int start = entry.first.Mark().pos, colon = text.indexOf(':', start);
             if (colon < 0)
-                fail("Invalid empty YAML field");
+                fail("Campo YAML vazio inválido");
             auto tail = QString::fromUtf8(text.mid(colon + 1));
             auto match =
                 QRegularExpression("^([ \\t]*)(?:(?:null|Null|NULL|~)(?=[ \\t\\r\\n,#}]|$))?")
@@ -379,7 +379,7 @@ static QByteArray enablePlugins(QByteArray text, const QByteArray& nl) {
                 .match(tail);
         if (!match.hasMatch() || tail.startsWith('&') || tail.startsWith('*') ||
             tail.startsWith('!') || tail.startsWith('|') || tail.startsWith('>'))
-            fail("Unsupported Plugins scalar format");
+            fail("Formato escalar de Plugins não suportado");
         auto token = match.captured().toUtf8();
         QByteArray replacement = "yes";
         if (token.startsWith('\''))
@@ -390,7 +390,7 @@ static QByteArray enablePlugins(QByteArray text, const QByteArray& nl) {
     } else if (root.IsMap() && root.Style() == YAML::EmitterStyle::Flow) {
         int offset = root.Mark().pos;
         if (offset < 0 || text[offset] != '{')
-            fail("Unsupported root anchor");
+            fail("Âncora raiz não suportada");
         text.insert(offset + 1, "Plugins: yes, ");
     } else {
         int offset = text.size();
@@ -402,7 +402,7 @@ static QByteArray enablePlugins(QByteArray text, const QByteArray& nl) {
     }
     auto checked = YAML::Load(text.toStdString());
     if (!checked.IsMap() || checked["Plugins"].as<std::string>() != "yes")
-        fail("Failed to enable Plugins");
+        fail("Falha ao ativar Plugins");
     return text;
 }
 
@@ -605,7 +605,7 @@ QByteArray formatManagedYaml(QByteArray text) {
 void validateManagedYaml(const QByteArray& text) {
     auto documents = YAML::LoadAll(text.toStdString());
     if (documents.size() > 1)
-        fail("Use only one YAML document in config.yaml");
+        fail("Use só um documento YAML no config.yaml");
     auto root = YAML::Load(text.toStdString());
     if (!root.IsMap())
         return;
@@ -616,19 +616,19 @@ void validateManagedYaml(const QByteArray& text) {
             continue;
         int start = entry.first.Mark().pos, colon = text.indexOf(':', start);
         if (colon < 0)
-            fail("Invalid managed YAML field");
+            fail("Campo YAML gerenciado inválido");
         auto tail = text.mid(colon + 1).trimmed();
         if (tail.startsWith('&') || tail.startsWith('*') || tail.startsWith('!'))
-            fail("Anchors, aliases and tags are not supported in " + field);
+            fail("Âncoras, aliases e tags não suportados em " + field);
         if (!entry.second.IsNull() && entry.second.Mark().pos < colon)
-            fail("Aliased configuration is not supported in " + field);
+            fail("Configuração com alias não suportada em " + field);
         auto checkNode = [&](const YAML::Node& node) {
             if (node.IsNull())
                 return;
             int pos = node.Mark().pos;
             if (pos < colon || (pos >= 0 && pos < text.size() &&
                                 (text[pos] == '&' || text[pos] == '*' || text[pos] == '!')))
-                fail("Anchors, aliases and tags are not supported in " + field);
+                fail("Âncoras, aliases e tags não suportados em " + field);
         };
         checkNode(entry.second);
         if (entry.second.IsSequence())
@@ -646,7 +646,7 @@ void validateManagedYaml(const QByteArray& text) {
 static QByteArray mergeYaml(QByteArray text, const Package& p) {
     validateManagedYaml(text);
     if (YAML::LoadAll(text.toStdString()).size() > 1)
-        fail("Use only one YAML document in config.yaml");
+        fail("Use só um documento YAML no config.yaml");
     const QByteArray nl = text.contains("\r\n") ? "\r\n" : "\n";
     for (const QString field : {"AdditionalApps", "AdditionalDepots", "DecryptionKeys"}) {
         text = blockCollection(text, field);
@@ -655,20 +655,20 @@ static QByteArray mergeYaml(QByteArray text, const Package& p) {
             text = fillEmptyField(text, field, field == "DecryptionKeys" ? "{}" : "[]");
         auto root = YAML::Load(text.toStdString());
         if (root && !root.IsNull() && !root.IsMap())
-            fail("Invalid existing configuration");
+            fail("Configuração existente inválida");
         QSet<QString> fields;
         if (root.IsMap())
             for (auto entry : root) {
                 auto k = QString::fromStdString(entry.first.as<std::string>());
                 if (fields.contains(k))
-                    fail("Duplicate YAML field: " + k);
+                    fail("Campo YAML duplicado: " + k);
                 fields.insert(k);
             }
         auto node = root.IsMap() ? root[field.toStdString()] : YAML::Node();
         bool mapping = field == "DecryptionKeys";
         bool exists = fields.contains(field);
         if (exists && !node.IsNull() && (mapping ? !node.IsMap() : !node.IsSequence()))
-            fail("Invalid format in " + field);
+            fail("Formato inválido em " + field);
         QSet<QString> existing;
         if (exists) {
             if (mapping)
@@ -686,7 +686,7 @@ static QByteArray mergeYaml(QByteArray text, const Package& p) {
             if (mapping && existing.contains(value) &&
                 QString::fromStdString(node[value.toStdString()].as<std::string>()).toLower() !=
                     p.keys[value])
-                fail("Key conflicts with configuration: " + value);
+                fail("Chave conflita com a configuração: " + value);
             if (!existing.contains(value))
                 additions << value;
         }
@@ -712,20 +712,20 @@ static QByteArray mergeYaml(QByteArray text, const Package& p) {
             offset = node.Mark().pos;
             if (flow) {
                 if (offset < 0 || offset >= text.size() || text[offset] != (mapping ? '{' : '['))
-                    fail("Unsupported collection anchor/alias in " + field);
+                    fail("Âncora/alias de coleção não suportado em " + field);
                 ++offset;
             } else {
                 indent = node.Mark().column;
                 int lineStart = text.lastIndexOf('\n', offset - 1) + 1;
                 if (text.mid(lineStart, offset - lineStart).trimmed().size())
-                    fail("Unsupported YAML collection in " + field);
+                    fail("Coleção YAML não suportada em " + field);
                 offset = lineStart;
             }
         } else {
             if (rootFlow) {
                 offset = root.Mark().pos;
                 if (offset < 0 || text[offset] != '{')
-                    fail("Unsupported root anchor");
+                    fail("Âncora raiz não suportada");
                 ++offset;
             }
             // Insert before a trailing `...` document-end marker.
@@ -759,37 +759,37 @@ static QByteArray mergeYaml(QByteArray text, const Package& p) {
         text.insert(offset, inserted);
         auto checked = YAML::Load(text.toStdString());
         if (!checked.IsMap())
-            fail("Failed to validate YAML changes");
+            fail("Falha ao validar alterações YAML");
     }
     return formatManagedYaml(enablePlugins(text, nl));
 }
 
 QString applyConfiguration(const Package& p, const QString& directory) {
     if (directory.trimmed().isEmpty())
-        fail("Select an explicit destination directory");
+        fail("Selecione um diretório de destino explícito");
     noSymlinks(directory);
     noSymlinks(QDir(directory).filePath("backups"));
     QDir dir(directory);
     if (!dir.exists() || QFileInfo(directory).isSymLink())
-        fail("Select an existing SLSsteam directory");
+        fail("Selecione um diretório SLSsteam existente");
     if (QFileInfo(dir.filePath("backups")).isSymLink())
-        fail("Destination directories cannot be symbolic links");
+        fail("Diretórios de destino não podem ser links simbólicos");
     QStringList files{"config.yaml"};
     for (auto f : files)
         if (QFileInfo(dir.filePath(f)).isSymLink())
-            fail("Destination file is a symbolic link");
+            fail("Arquivo de destino é um link simbólico");
     QByteArray original;
     QFile config(dir.filePath("config.yaml"));
     if (config.exists()) {
         if (!config.open(QIODevice::ReadOnly))
-            fail("Could not read config.yaml");
+            fail("Não foi possível ler o config.yaml");
         original = config.readAll();
     }
     auto updated = mergeYaml(original, p);
     QString backup =
         dir.filePath("backups/psyche-" + QUuid::createUuid().toString(QUuid::WithoutBraces));
     if (!QDir().mkpath(backup))
-        fail("Failed to create backup");
+        fail("Falha ao criar backup");
     QByteArray manifest;
     for (auto f : files) {
         QFile original(dir.filePath(f));
@@ -797,7 +797,7 @@ QString applyConfiguration(const Package& p, const QString& directory) {
         manifest += (exists ? "1 " : "0 ") + f.toUtf8() + "\n";
         if (exists) {
             if (!original.open(QIODevice::ReadOnly))
-                fail("Failed to read file for backup");
+                fail("Falha ao ler arquivo para backup");
             write(backup + "/" + f, original.readAll());
         }
     }

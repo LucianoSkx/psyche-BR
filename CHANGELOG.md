@@ -1,5 +1,9 @@
 # Changelog
 
+## psyche-BR — interface em pt-BR (fork de ciscosweater/psyche)
+
+- Todos os textos visíveis (QML, status, erros, CLI, instalador do pacote) traduzidos; identificadores, chaves e protocolos intactos.
+
 ## 1.2.0 — 2026-09-05
 
 - Stop Import from flickering on resize after Open ZIP.

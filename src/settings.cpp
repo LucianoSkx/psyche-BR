@@ -71,7 +71,7 @@ AppSettings::AppSettings(QString home,
     if (file.exists()) {
         if (!file.open(QIODevice::ReadOnly)) {
             m_unreadable = true;
-            reportError("Could not read preferences. Check file permissions.");
+            reportError("Não foi possível ler as preferências. Verifique as permissões.");
         } else {
             QJsonParseError error;
             auto doc = QJsonDocument::fromJson(file.readAll(), &error);
@@ -79,7 +79,7 @@ AppSettings::AppSettings(QString home,
                 m_values = doc.object();
             else {
                 m_corrupt = true;
-                reportError("Invalid preferences. A copy will be preserved on the next save.");
+                reportError("Preferências inválidas. Uma cópia será preservada no próximo salvamento.");
             }
         }
     }
@@ -146,9 +146,9 @@ void AppSettings::detectPaths() {
     m_libraryInject.clear();
     m_steamRunning = steamProcessRunning(m_procRoot);
     appendDirectory(
-        m_destinations, m_config + "/SLSsteam", "SLSsteam • user configuration", "config.yaml");
+        m_destinations, m_config + "/SLSsteam", "SLSsteam • configuração do usuário", "config.yaml");
     appendDirectory(
-        m_destinations, m_home + "/.config/SLSsteam", "SLSsteam • native", "config.yaml");
+        m_destinations, m_home + "/.config/SLSsteam", "SLSsteam • nativo", "config.yaml");
     const auto flat = m_home + "/.var/app/com.valvesoftware.Steam";
     appendDirectory(m_destinations, flat + "/config/SLSsteam", "SLSsteam • Flatpak", "config.yaml");
     appendDirectory(
@@ -158,7 +158,7 @@ void AppSettings::detectPaths() {
                     "SLSsteam • Snap",
                     "config.yaml");
     auto saved = m_values.value("destination").toString();
-    appendDirectory(m_destinations, saved, "Selected directory");
+    appendDirectory(m_destinations, saved, "Diretório selecionado");
     // Keep a saved destination even if that path is currently missing.
     m_destination = saved.isEmpty() ? (m_destinations.size() == 1
                                            ? m_destinations.first().toMap()["path"].toString()
@@ -169,21 +169,21 @@ void AppSettings::detectPaths() {
                                         m_home + "/.steam/steam",
                                         m_home + "/.steam/root",
                                         m_home + "/.steam/debian-installation"})
-        appendDirectory(m_steams, path, "Steam • native", "steamapps");
+        appendDirectory(m_steams, path, "Steam • nativo", "steamapps");
     for (const auto& path :
          QStringList{flat + "/data/Steam", flat + "/.local/share/Steam", flat + "/.steam/steam"})
         appendDirectory(m_steams, path, "Steam • Flatpak", "steamapps");
     appendDirectory(
         m_steams, m_home + "/snap/steam/common/.local/share/Steam", "Steam • Snap", "steamapps");
     auto steam = m_values.value("steamDirectory").toString();
-    appendDirectory(m_steams, steam, "Steam • selected directory", "steamapps");
+    appendDirectory(m_steams, steam, "Steam • diretório selecionado", "steamapps");
     m_steam = steam.isEmpty()
                   ? (m_steams.isEmpty() ? QString() : m_steams.first().toMap()["path"].toString())
                   : steam;
     const QRegularExpression paths(R"vdf("(?:path|[0-9]+)"\s*"((?:\\.|[^"\\])*)")vdf");
     for (const auto& entry : m_steams) {
         const auto root = entry.toMap()["path"].toString();
-        appendDirectory(m_libraries, root, "Steam library", "steamapps");
+        appendDirectory(m_libraries, root, "Biblioteca Steam", "steamapps");
         for (const auto& relative : {"steamapps/libraryfolders.vdf", "config/libraryfolders.vdf"}) {
             QFile file(root + "/" + relative);
             if (!file.open(QIODevice::ReadOnly) || file.size() > 4 * 1024 * 1024)
@@ -194,7 +194,7 @@ void AppSettings::detectPaths() {
                 path.replace("\\\"", "\"");
                 path.replace("\\\\", "\\");
                 if (QDir::isAbsolutePath(path))
-                    appendDirectory(m_libraries, path, "Additional library", "steamapps");
+                    appendDirectory(m_libraries, path, "Biblioteca adicional", "steamapps");
             }
         }
     }
@@ -275,20 +275,20 @@ bool AppSettings::reportError(const QString& message) {
 bool AppSettings::persist() {
     if (m_unreadable)
         return reportError(
-            "Preferences could not be read. Fix permissions and restart the app before saving.");
+            "Não foi possível ler as preferências. Ajuste as permissões e reinicie o app antes de salvar.");
     if (!QDir().mkpath(m_data) ||
         !QFile::setPermissions(
             m_data, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner))
-        return reportError("Could not prepare preferences directory.");
+        return reportError("Não foi possível preparar o diretório de preferências.");
     QLockFile lock(m_data + "/settings.lock");
     if (!lock.tryLock(100))
-        return reportError("Another instance is saving preferences. Try again.");
+        return reportError("Outra instância está salvando preferências. Tente de novo.");
     const auto path = m_data + "/settings.json";
     QJsonObject saved;
     QFile current(path);
     if (current.exists()) {
         if (!current.open(QIODevice::ReadOnly))
-            return reportError("Could not reread preferences before saving.");
+            return reportError("Não foi possível reler as preferências antes de salvar.");
         QJsonParseError error;
         auto doc = QJsonDocument::fromJson(current.readAll(), &error);
         current.close();
@@ -298,7 +298,7 @@ bool AppSettings::persist() {
             auto copy = path + ".invalid-" + QString::number(QDateTime::currentMSecsSinceEpoch());
             if (!QFile::copy(path, copy) ||
                 !QFile::setPermissions(copy, QFileDevice::ReadOwner | QFileDevice::WriteOwner))
-                return reportError("Could not preserve invalid preferences.");
+                return reportError("Não foi possível preservar preferências inválidas.");
         }
     }
     // Merge dirty keys only so another instance's key/history isn't clobbered.
@@ -338,23 +338,23 @@ bool AppSettings::persist() {
     if (!file.open(QIODevice::WriteOnly) ||
         !file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner) ||
         file.write(data) != data.size() || !file.commit())
-        return reportError("Could not save preferences in " + m_data);
+        return reportError("Não foi possível salvar preferências em " + m_data);
     m_values = saved;
     m_dirty.clear();
     m_pendingRecords = {};
     m_pendingRestores.clear();
     m_corrupt = false;
     m_error = false;
-    m_message = "Preferences saved.";
+    m_message = "Preferências salvas.";
     emit changed();
     return true;
 }
 bool AppSettings::chooseDestination(QUrl directory) {
     if (!directory.isLocalFile())
-        return reportError("Choose a local directory.");
+        return reportError("Escolha um diretório local.");
     auto path = existingDirectory(directory.toLocalFile());
     if (path.isEmpty())
-        return reportError("Destination directory does not exist.");
+        return reportError("Diretório de destino não existe.");
     m_values["destination"] = path;
     m_dirty.insert("destination");
     detectPaths();
@@ -362,10 +362,10 @@ bool AppSettings::chooseDestination(QUrl directory) {
 }
 bool AppSettings::chooseSteam(QUrl directory) {
     if (!directory.isLocalFile())
-        return reportError("Choose a local Steam directory.");
+        return reportError("Escolha um diretório Steam local.");
     auto path = existingDirectory(directory.toLocalFile());
     if (path.isEmpty() || !QFileInfo(path + "/steamapps").isDir())
-        return reportError("Directory must contain steamapps.");
+        return reportError("O diretório precisa conter steamapps.");
     m_values["steamDirectory"] = path;
     m_dirty.insert("steamDirectory");
     detectPaths();
@@ -384,17 +384,17 @@ QString AppSettings::downloadContent() const {
 }
 bool AppSettings::setDownloadContent(QString content) {
     if (!QStringList{"full", "basegame", "dlc", "zip"}.contains(content))
-        return reportError("Invalid content type.");
+        return reportError("Tipo de conteúdo inválido.");
     m_values["downloadContent"] = content;
     m_dirty.insert("downloadContent");
     return persist();
 }
 bool AppSettings::savePreferences(QString key, bool remember, QString theme) {
     if (!QStringList{"system", "light", "dark"}.contains(theme))
-        return reportError("Invalid theme.");
+        return reportError("Tema inválido.");
     key = key.trimmed();
     if (key.contains('\r') || key.contains('\n'))
-        return reportError("Invalid key.");
+        return reportError("Chave inválida.");
     if (key != m_sessionKey)
         m_importedKey = false;
     m_sessionKey = key;

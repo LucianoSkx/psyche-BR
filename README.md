@@ -1,25 +1,27 @@
-# psyche
+# psyche-BR
 
-Linux app (C++17, Qt 6/QML) that searches Hubcap, imports Lua/ZIP packages, and merges them into SLSsteam's `config.yaml`.
+App Linux (C++17, Qt 6/QML) que busca na Hubcap, importa pacotes Lua/ZIP e mescla no `config.yaml` do SLSsteam. Interface em pt-BR.
 
-It does not install games, Steam plugins, or execute Lua. Lua is scanned only. YAML edits keep comments and write a backup first.
+Fork do [ciscosweater/psyche](https://github.com/ciscosweater/psyche). Só a interface foi traduzida; o funcionamento é o do upstream.
 
-Default renderer is software (`QT_QUICK_BACKEND`).
+Não instala jogos, plugins da Steam nem executa Lua. Lua é só lido. Edições no YAML preservam comentários e gravam backup antes.
 
-## Install
+Renderizador padrão é software (`QT_QUICK_BACKEND`).
 
-Get a `*-setup.zip` from [Releases](https://github.com/ciscosweater/psyche/releases), extract it, and run:
+## Instalar
+
+Pegue um `*-setup.zip` nos [Releases](https://github.com/LucianoSkx/psyche-BR/releases), extraia e rode:
 
 ```sh
 ./install.sh
 ~/.local/share/psyche/bin/psyche
 ```
 
-Or run `./psyche` from the extracted directory. Keep the Qt runtime next to the binary.
+Ou rode `./psyche` do diretório extraído. Mantenha o runtime Qt ao lado do binário.
 
 Linux x86_64, glibc 2.41+ (Debian 13 / similar).
 
-## Build
+## Compilar
 
 CMake ≥ 3.21, C++17, Qt ≥ 6.5 (Quick, Quick Controls 2, Concurrent, Network), libarchive, yaml-cpp.
 
@@ -31,27 +33,27 @@ cmake --build build -j
 
 ## CLI
 
-Any argument starts the CLI (no display). Nothing is written without `--apply`.
+Qualquer argumento abre a CLI (sem tela). Nada é gravado sem `--apply`.
 
 ```sh
-./build/psyche --search "Game name"
+./build/psyche --search "Nome do jogo"
 ./build/psyche --appid 620
-./build/psyche --zip package.zip --apply --destination /path/to/SLSsteam
+./build/psyche --zip pacote.zip --apply --destination /caminho/para/SLSsteam
 ./build/psyche --help
 ```
 
-Search and AppID downloads use Hubcap quota. Local ZIPs do not.
+Busca e downloads por AppID usam cota da Hubcap. ZIPs locais, não.
 
 ## Hubcap
 
-Set the key in Settings, or export `PSYCHE_HUBCAP_API_KEY`.
+Defina a chave em Configurações ou exporte `PSYCHE_HUBCAP_API_KEY`.
 
-If neither is set, psyche reads ASSella's `morrenus_api_key` from `$XDG_CONFIG_HOME/Tachibana Labs/ACCELA.conf` (read-only).
+Se nenhum estiver definido, o psyche lê `morrenus_api_key` do ASSella em `$XDG_CONFIG_HOME/Tachibana Labs/ACCELA.conf` (só leitura).
 
-A saved key goes unencrypted into `~/.local/share/psyche/settings.json` (`0600` file, `0700` directory). Check **Remember on this computer** only if you want that.
+A chave salva vai sem criptografia para `~/.local/share/psyche/settings.json` (arquivo `0600`, diretório `0700`). Marque **Lembrar neste computador** só se quiser isso.
 
-## License
+## Licença
 
-MIT. The ZIP ships Qt and other runtime libraries (see `licenses/THIRD_PARTY.md` in the bundle). Pixelify Sans is SIL OFL (`qml/fonts/OFL.txt`).
+MIT. O ZIP leva Qt e outras bibliotecas de runtime (veja `licenses/THIRD_PARTY.md` no pacote). Pixelify Sans é SIL OFL (`qml/fonts/OFL.txt`).
 
-I used AI while writing this. The code can be wrong in ways that look fine — bugs, bad edges, leftover junk. Read it before you trust it, especially around `config.yaml` and API keys. MIT, no warranty.
+Nota do autor original (tradução): usei IA ao escrever isso. O código pode estar errado de jeitos que parecem certos — bugs, casos de borda ruins, sobras. Leia antes de confiar, principalmente em torno de `config.yaml` e chaves de API. MIT, sem garantia.

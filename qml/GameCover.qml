@@ -20,7 +20,7 @@ Rectangle {
         anchors.centerIn: parent; width: parent.width - 16; spacing: 4
         visible: !cover.ready
         Label { textFormat: Text.PlainText; text: cover.title ? cover.title.slice(0, 2).toUpperCase() : "P"; font.pixelSize: 25; font.bold: true; color: cover.accent; anchors.horizontalCenter: parent.horizontalCenter }
-        Label { textFormat: Text.PlainText; text: artwork.states[cover.appId] === "loading" ? "Loading…" : "No image"; font.pixelSize: 11; color: cover.dark ? "#a1a1a8" : "#4e6581"; anchors.horizontalCenter: parent.horizontalCenter }
+        Label { textFormat: Text.PlainText; text: artwork.states[cover.appId] === "loading" ? "Carregando…" : "Sem imagem"; font.pixelSize: 11; color: cover.dark ? "#a1a1a8" : "#4e6581"; anchors.horizontalCenter: parent.horizontalCenter }
     }
     Image {
         id: image
@@ -33,5 +33,5 @@ Rectangle {
         Behavior on opacity { NumberAnimation { duration: 160 } }
     }
     Accessible.role: Accessible.Graphic
-    Accessible.name: cover.ready ? "Cover for " + cover.title : "Image unavailable for " + cover.title
+    Accessible.name: cover.ready ? "Capa de " + cover.title : "Imagem indisponível de " + cover.title
 }

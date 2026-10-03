@@ -112,7 +112,7 @@ int main(int argc, char** argv) {
             PSYCHE_CHECK(false);
         } catch (const std::exception& e) {
             auto message = QString::fromUtf8(e.what());
-            PSYCHE_CHECK(message.contains("401") && message.contains("expired"));
+            PSYCHE_CHECK(message.contains("401") && message.contains("expirou"));
         }
         responses.append({200, R"({"status":"healthy"})"});
         PSYCHE_CHECK(

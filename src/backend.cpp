@@ -34,14 +34,14 @@ void Backend::acceptPackage(const Package& package, const QString& error) {
         m_appId = *package.apps.begin();
     if (!gameName().isEmpty())
         m_source = gameName();
-    finish("Ready to add.", "success");
+    finish("Pronto para adicionar.", "success");
     emit packageLoaded();
 }
 void Backend::inspect(QUrl file) {
     if (m_busy)
         return;
     if (!file.isLocalFile()) {
-        finish("Select a local ZIP.", "error");
+        finish("Selecione um ZIP local.", "error");
         return;
     }
     m_ready = false;
@@ -51,7 +51,7 @@ void Backend::inspect(QUrl file) {
     m_preview.clear();
     m_source = QFileInfo(file.toLocalFile()).fileName();
     m_settings->rememberImport(file);
-    begin("import", "Reading ZIP and looking up game…");
+    begin("import", "Lendo ZIP e buscando o jogo…");
     auto watcher = new QFutureWatcher<QPair<Package, QString>>(this);
     connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher] {
         auto result = watcher->result();
@@ -73,14 +73,14 @@ void Backend::apply() {
     if (!m_ready || m_busy || m_applied)
         return;
     if (!m_settings->destinationValid()) {
-        finish("Choose a destination directory in Settings.", "error");
+        finish("Escolha um diretório de destino em Configurações.", "error");
         return;
     }
     auto path = m_settings->destination();
     auto package = m_package;
     auto source = m_source;
     auto appId = m_appId;
-    begin("apply", "Adding to config.yaml…");
+    begin("apply", "Adicionando ao config.yaml…");
     auto watcher = new QFutureWatcher<QPair<QString, QString>>(this);
     connect(watcher,
             &QFutureWatcherBase::finished,
@@ -95,8 +95,8 @@ void Backend::apply() {
                 m_applied = true;
                 bool saved = m_settings->recordApplication(
                     source, path, result.first, package.summary(), appId);
-                finish(saved ? "Added to config.yaml."
-                             : "Applied. Backup: " + result.first + ". Could not save history.",
+                finish(saved ? "Adicionado ao config.yaml."
+                             : "Aplicado. Backup: " + result.first + ". Não foi possível salvar o histórico.",
                        saved ? "success" : "error");
                 refreshLibrary();
             });
@@ -113,12 +113,12 @@ void Backend::restore(int historyIndex) {
         return;
     auto history = m_settings->history();
     if (historyIndex < 0 || historyIndex >= history.size()) {
-        finish("Backup not found in history.", "error");
+        finish("Backup não encontrado no histórico.", "error");
         return;
     }
     auto record = history[historyIndex].toMap();
     auto path = record["destination"].toString(), backup = record["backup"].toString();
-    begin("restore", "Restoring backup…");
+    begin("restore", "Restaurando backup…");
     auto watcher = new QFutureWatcher<QString>(this);
     connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, backup] {
         auto error = watcher->result();
@@ -129,8 +129,8 @@ void Backend::restore(int historyIndex) {
         }
         m_applied = false;
         bool saved = m_settings->markRestored(backup);
-        finish(saved ? "Backup restored successfully."
-                     : "Backup restored, but history could not be updated.",
+        finish(saved ? "Backup restaurado com sucesso."
+                     : "Backup restaurado, mas o histórico não pôde ser atualizado.",
                saved ? "success" : "error");
         refreshLibrary();
     });
@@ -151,7 +151,7 @@ void Backend::search(QString query, int offset) {
     m_searchOffset = offset;
     m_settings->saveNavigation(m_settings->lastTab(), query);
     auto apiKey = m_settings->effectiveApiKey();
-    begin("search", "Searching Hubcap…");
+    begin("search", "Buscando na Hubcap…");
     auto watcher = new QFutureWatcher<QPair<SearchPage, QString>>(this);
     connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher] {
         auto result = watcher->result();
@@ -163,7 +163,7 @@ void Backend::search(QString query, int offset) {
         }
         m_games = result.first.games;
         m_hasMore = result.first.hasMore;
-        finish(m_games.isEmpty() ? "No games found." : "Choose a game.");
+        finish(m_games.isEmpty() ? "Nenhum jogo encontrado." : "Escolha um jogo.");
     });
     watcher->setFuture(QtConcurrent::run([query, apiKey, offset] {
         try {
@@ -185,7 +185,7 @@ void Backend::fetch(QString appId, QString name) {
     auto content = m_settings->downloadContent();
     m_source += " • " + Catalog::contentLabel(content);
     auto apiKey = m_settings->effectiveApiKey();
-    begin("import", "Downloading " + Catalog::contentLabel(content) + " for AppID " + appId + "…");
+    begin("import", "Baixando " + Catalog::contentLabel(content) + " para o AppID " + appId + "…");
     auto watcher = new QFutureWatcher<QPair<Package, QString>>(this);
     connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher] {
         auto result = watcher->result();
@@ -207,7 +207,7 @@ void Backend::fetch(QString appId, QString name) {
 }
 void Backend::openFolder(QString path) {
     if (!QFileInfo(path).isDir() || !QDesktopServices::openUrl(QUrl::fromLocalFile(path))) {
-        m_status = "Could not open directory.";
+        m_status = "Não foi possível abrir o diretório.";
         m_kind = "error";
         emit changed();
     }
@@ -242,13 +242,13 @@ void Backend::checkHubcap() {
             QStringList parts;
             const auto expires = account.value("api_key_expires_at").toString();
             if (!expires.isEmpty())
-                parts << "Expires: " + expires;
+                parts << "Expira: " + expires;
             if (account.contains("daily_usage") || account.contains("daily_limit"))
-                parts << "Today: " + account.value("daily_usage").toString() + " / " +
+                parts << "Hoje: " + account.value("daily_usage").toString() + " / " +
                              account.value("daily_limit").toString();
             if (account.value("can_make_requests") == false)
-                parts << "Blocked";
-            if (!parts.isEmpty() && !m_status.contains("Expires:") && !m_status.contains("Today:"))
+                parts << "Bloqueada";
+            if (!parts.isEmpty() && !m_status.contains("Expira:") && !m_status.contains("Hoje:"))
                 m_status += " " + parts.join(" · ") + ".";
         }
         emit changed();
@@ -300,7 +300,7 @@ void Backend::removeGame(QString gameId) {
         return;
     m_settings->refreshSteamRunning();
     const bool steamOpen = m_settings->steamRunning();
-    begin("remove", "Removing game entries…");
+    begin("remove", "Removendo entradas do jogo…");
     auto watcher = new QFutureWatcher<QPair<QString, QString>>(this);
     connect(watcher,
             &QFutureWatcherBase::finished,
@@ -315,12 +315,12 @@ void Backend::removeGame(QString gameId) {
                 }
                 m_applied = false;
                 auto saved = m_settings->recordApplication(
-                    "Removed: " + name, path, result.first, "Removed game entries", appId);
+                    "Removido: " + name, path, result.first, "Entradas do jogo removidas", appId);
                 auto status =
-                    saved ? QString("Game entries removed. Backup saved in History.")
-                          : QString("Removed. Could not save history. Backup: " + result.first);
+                    saved ? QString("Entradas do jogo removidas. Backup salvo no Histórico.")
+                          : QString("Removido. Não foi possível salvar o histórico. Backup: " + result.first);
                 if (steamOpen)
-                    status += " Restart Steam to refresh the library.";
+                    status += " Reinicie a Steam para atualizar a biblioteca.";
                 finish(status, saved ? "success" : "error");
                 refreshLibrary();
             });

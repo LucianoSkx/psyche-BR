@@ -18,7 +18,7 @@ void merge(Package& target, const Package& source) {
     target.depots.unite(source.depots);
     for (auto it = source.keys.begin(); it != source.keys.end(); ++it) {
         if (target.keys.contains(it.key()) && target.keys[it.key()] != it.value())
-            throw std::runtime_error("Conflicting keys between inputs.");
+            throw std::runtime_error("Chaves conflitantes entre as entradas.");
         target.keys[it.key()] = it.value();
     }
     for (auto it = source.labels.begin(); it != source.labels.end(); ++it)
@@ -29,26 +29,26 @@ int runCli() {
     QTextStream out(stdout), err(stderr);
     QCommandLineParser parser;
     parser.setApplicationDescription(
-        "Import ZIPs or fetch AppIDs from Hubcap. Without --apply, only show a preview.\nAPI key: "
-        "saved preferences or PSYCHE_HUBCAP_API_KEY.");
+        "Importa ZIPs ou baixa AppIDs da Hubcap. Sem --apply, mostra só uma prévia.\nChave de API: "
+        "preferências salvas ou PSYCHE_HUBCAP_API_KEY.");
     parser.addHelpOption();
     parser.addVersionOption();
-    parser.addOption({"health", "Check Hubcap service health (free, no key required)."});
-    parser.addOption({"stats", "Show Hubcap account usage and limits (free)."});
-    parser.addOption({"paths", "Show saved and detected paths without changing files."});
-    parser.addOption({"cli", "Run without a graphical interface."});
-    parser.addOption({"zip", "Local ZIP (repeatable).", "file"});
+    parser.addOption({"health", "Verifica a saúde do serviço Hubcap (grátis, sem chave)."});
+    parser.addOption({"stats", "Mostra uso e limites da conta Hubcap (grátis)."});
+    parser.addOption({"paths", "Mostra caminhos salvos e detectados sem alterar arquivos."});
+    parser.addOption({"cli", "Roda sem interface gráfica."});
+    parser.addOption({"zip", "ZIP local (pode repetir).", "file"});
     parser.addOption(
-        {"content", "Remote content: full, basegame, dlc or zip (default: full).", "type", "full"});
-    parser.addOption({"appid", "Download by AppID; uses daily quota (repeatable).", "id"});
-    parser.addOption({"search", "Search Hubcap for games by name.", "name"});
-    parser.addOption({"offset", "Search offset (up to 100 results per page).", "n", "0"});
+        {"content", "Conteúdo remoto: full, basegame, dlc ou zip (padrão: full).", "type", "full"});
+    parser.addOption({"appid", "Baixa por AppID; usa cota diária (pode repetir).", "id"});
+    parser.addOption({"search", "Busca jogos na Hubcap pelo nome.", "name"});
+    parser.addOption({"offset", "Deslocamento da busca (até 100 resultados por página).", "n", "0"});
     parser.addOption(
-        {{"d", "destination"}, "SLSsteam directory (default: saved or detected).", "directory"});
-    parser.addOption({"name", "Game name in YAML comments (one input per run).", "name"});
-    parser.addOption({"apply", "Apply entries to destination with a backup."});
-    parser.addOption({"restore", "Restore backup to an explicit destination.", "backup-directory"});
-    parser.addPositionalArgument("input", "Local ZIPs or AppIDs.", "[input…]");
+        {{"d", "destination"}, "Diretório SLSsteam (padrão: salvo ou detectado).", "directory"});
+    parser.addOption({"name", "Nome do jogo nos comentários YAML (uma entrada por vez).", "name"});
+    parser.addOption({"apply", "Aplica entradas no destino com backup."});
+    parser.addOption({"restore", "Restaura backup para um destino explícito.", "backup-directory"});
+    parser.addPositionalArgument("input", "ZIPs locais ou AppIDs.", "[input…]");
     if (!parser.parse(QCoreApplication::arguments())) {
         err << parser.errorText() << '\n';
         return 2;
@@ -70,7 +70,7 @@ int runCli() {
     }
     ids.removeDuplicates(); // One Hubcap download per AppID.
     if (parser.isSet("content") && ids.isEmpty()) {
-        err << "--content requires an AppID.\n";
+        err << "--content exige um AppID.\n";
         return 2;
     }
     try {
@@ -81,7 +81,7 @@ int runCli() {
     }
     if (parser.isSet("name") &&
         (zips.size() + ids.size() != 1 || parser.value("name").trimmed().isEmpty())) {
-        err << "--name requires exactly one input and a name.\n";
+        err << "--name exige exatamente uma entrada e um nome.\n";
         return 2;
     }
     bool inputs = !zips.isEmpty() || !ids.isEmpty();
@@ -90,7 +90,7 @@ int runCli() {
     if (health || stats) {
         if (inputs || paths || parser.isSet("apply") || parser.isSet("restore") ||
             parser.isSet("search") || parser.isSet("destination") || parser.isSet("offset")) {
-            err << "Use --health/--stats without import, search, or restore options.\n";
+            err << "Use --health/--stats sem opções de importação, busca ou restauração.\n";
             return 2;
         }
         try {
@@ -116,22 +116,22 @@ int runCli() {
         (restore && parser.value("destination").isEmpty()) ||
         (parser.isSet("destination") && !apply && !restore) ||
         (!paths && !search && !restore && !inputs)) {
-        err << "Invalid combination. See --help; use --apply to write or --paths to inspect "
-               "paths.\n";
+        err << "Combinação inválida. Veja --help; use --apply para gravar ou --paths para inspecionar "
+               "caminhos.\n";
         return 2;
     }
     bool validOffset = false;
     int offset = parser.value("offset").toInt(&validOffset);
     if (search && (!validOffset || offset < 0)) {
-        err << "Invalid offset.\n";
+        err << "Deslocamento inválido.\n";
         return 2;
     }
     try {
         AppSettings settings;
         if (paths) {
-            out << "psyche data: " << settings.dataDirectory() << '\n'
-                << "SLSsteam destination: "
-                << (settings.destination().isEmpty() ? "Not found or ambiguous"
+            out << "dados do psyche: " << settings.dataDirectory() << '\n'
+                << "Destino SLSsteam: "
+                << (settings.destination().isEmpty() ? "Não encontrado ou ambíguo"
                                                      : settings.destination())
                 << '\n';
             out << "Steam: " << settings.steamDirectory() << '\n'
@@ -139,9 +139,9 @@ int runCli() {
             out << "library-inject.so: " << settings.libraryInject() << '\n';
             out << "Backups: " << settings.backupDirectory() << '\n';
             for (const auto& entry : settings.destinations())
-                out << "SLSsteam candidate: " << entry.toMap()["path"].toString() << '\n';
+                out << "Candidato SLSsteam: " << entry.toMap()["path"].toString() << '\n';
             for (const auto& entry : settings.libraries())
-                out << "Library: " << entry.toMap()["path"].toString() << '\n';
+                out << "Biblioteca: " << entry.toMap()["path"].toString() << '\n';
             if (settings.settingsError())
                 err << settings.message() << '\n';
             return 0;
@@ -154,9 +154,9 @@ int runCli() {
                 out << row["appId"].toString() << '\t' << row["name"].toString() << '\n';
             }
             if (page.games.isEmpty())
-                out << "No games found.\n";
+                out << "Nenhum jogo encontrado.\n";
             if (page.hasMore)
-                out << "More results available; use --offset " << offset + 100 << ".\n";
+                out << "Há mais resultados; use --offset " << offset + 100 << ".\n";
             return 0;
         }
         auto destination = parser.isSet("destination")
@@ -164,14 +164,14 @@ int runCli() {
                                : settings.destination();
         if (apply && (destination.isEmpty() || (parser.isSet("destination") &&
                                                 parser.value("destination").trimmed().isEmpty()))) {
-            err << "Destination missing or ambiguous. Use --destination DIRECTORY or save a "
-                   "directory in the app.\n";
+            err << "Destino ausente ou ambíguo. Use --destination DIRETÓRIO ou salve um "
+                   "diretório no app.\n";
             return 2;
         }
         if (restore) {
             restoreBackup(destination, QFileInfo(parser.value("restore")).absoluteFilePath());
             settings.markRestored(QFileInfo(parser.value("restore")).absoluteFilePath());
-            out << "Backup restored.\n";
+            out << "Backup restaurado.\n";
             return 0;
         }
         for (const auto& id : ids)
@@ -196,9 +196,9 @@ int runCli() {
             out << game.toObject()["name"].toString() << '\n';
         out << package.summary() << '\n';
         if (apply) {
-            out << "Destination: " << destination << '\n';
+            out << "Destino: " << destination << '\n';
             auto backup = applyPackage(package, destination);
-            out << "Applied. Backup: " << backup << '\n';
+            out << "Aplicado. Backup: " << backup << '\n';
             QStringList sources;
             for (const auto& zip : zips)
                 sources << QFileInfo(zip).fileName();
@@ -211,7 +211,7 @@ int runCli() {
                     sources.join(", "), destination, backup, package.summary(), coverId))
                 err << "Warning: " << settings.message() << '\n';
         } else
-            out << "Preview only. To write, use --apply --destination DIRECTORY.\n";
+            out << "Só prévia. Para gravar, use --apply --destination DIRETÓRIO.\n";
         return 0;
     } catch (const std::exception& e) {
         err << "Error: " << e.what() << '\n';

@@ -45,14 +45,14 @@ ApplicationWindow {
     onClosing: function(close) {
         if (backend.busy) {
             close.accepted = false
-            window.notice = "Wait until the current task finishes."
+            window.notice = "Aguarde a tarefa atual terminar."
             return
         }
         preferences.saveWindow(width, height)
     }
     function contentLabel() {
         const i = ["full", "basegame", "dlc", "zip"].indexOf(preferences.downloadContent)
-        return ["Game + DLCs", "Base game only", "DLCs only", "Full ZIP"][Math.max(0, i)]
+        return ["Jogo + DLCs", "Só o jogo base", "Só DLCs", "ZIP completo"][Math.max(0, i)]
     }
     function promptKey() {
         window.needsKey = true
@@ -75,7 +75,7 @@ ApplicationWindow {
     function acceptZip(url) {
         const path = String(url)
         if (!path.toLowerCase().endsWith(".zip")) {
-            window.notice = "Drop a single ZIP file."
+            window.notice = "Solte um único arquivo ZIP."
             return false
         }
         window.notice = ""
@@ -94,7 +94,7 @@ ApplicationWindow {
     Connections { target: backend; function onPackageLoaded() { tabs.currentIndex = window.tabImport } }
     Connections {
         target: backend
-        function onChanged() { if (!backend.busy && window.notice === "Wait until the current task finishes.") window.notice = "" }
+        function onChanged() { if (!backend.busy && window.notice === "Aguarde a tarefa atual terminar.") window.notice = "" }
     }
 
     component PixelText: Label { textFormat: Text.PlainText; font.family: pixel.name; font.pixelSize: 26; color: window.ink; wrapMode: Text.WordWrap }
@@ -123,7 +123,7 @@ ApplicationWindow {
         selectByMouse: true
         background: Rectangle { color: window.surface; radius: 4; border.width: parent.activeFocus ? 2 : 1; border.color: parent.activeFocus ? window.accent : window.border }
     }
-    component PathField: Input { readOnly: true; Layout.fillWidth: true; font.pixelSize: 12; Accessible.name: "Path" }
+    component PathField: Input { readOnly: true; Layout.fillWidth: true; font.pixelSize: 12; Accessible.name: "Caminho" }
     component Card: Pane {
         padding: 12
         contentHeight: contentItem.children.length > 0 ? contentItem.children[0].implicitHeight : 0
@@ -162,11 +162,11 @@ ApplicationWindow {
         }
     }
     component ContentChoice: ChoiceBox {
-        model: ["Game + DLCs", "Base game only", "DLCs only", "Full ZIP"]
+        model: ["Jogo + DLCs", "Só o jogo base", "Só DLCs", "ZIP completo"]
         currentIndex: ["full", "basegame", "dlc", "zip"].indexOf(preferences.downloadContent)
         onActivated: preferences.setDownloadContent(["full", "basegame", "dlc", "zip"][currentIndex])
-        Accessible.name: "Content to download from Hubcap"
-        ToolTip.visible: hovered; ToolTip.text: "Each download uses Hubcap daily quota."
+        Accessible.name: "Conteúdo para baixar da Hubcap"
+        ToolTip.visible: hovered; ToolTip.text: "Cada download usa a cota diária da Hubcap."
     }
     component Tick: CheckBox {
         id: tick
@@ -223,9 +223,9 @@ ApplicationWindow {
                 PixelText { text: "psyche_"; font.pixelSize: 30; Accessible.name: "psyche" }
                 Item { Layout.fillWidth: true }
                 Action {
-                    text: preferences.hasApiKey ? "Hubcap" : "+ Connect Hubcap"
+                    text: preferences.hasApiKey ? "Hubcap" : "+ Conectar Hubcap"
                     flat: true; onClicked: tabs.currentIndex = window.tabSettings
-                    Accessible.name: "Configure Hubcap connection"
+                    Accessible.name: "Configurar conexão Hubcap"
                 }
             }
             TabBar {
@@ -234,11 +234,11 @@ ApplicationWindow {
                 currentIndex: preferences.lastTab
                 onCurrentIndexChanged: if (window.hydrated) preferences.saveNavigation(currentIndex, window.lastSearch)
                 background: Item {}
-                NavTab { text: "Games"; objectName: "searchTab" }
-                NavTab { text: "Import"; objectName: "importTab" }
-                NavTab { text: "Library"; objectName: "libraryTab" }
-                NavTab { text: "History"; objectName: "historyTab" }
-                NavTab { text: "Settings"; objectName: "settingsTab" }
+                NavTab { text: "Jogos"; objectName: "searchTab" }
+                NavTab { text: "Importar"; objectName: "importTab" }
+                NavTab { text: "Biblioteca"; objectName: "libraryTab" }
+                NavTab { text: "Histórico"; objectName: "historyTab" }
+                NavTab { text: "Configurações"; objectName: "settingsTab" }
             }
         }
     }
@@ -253,17 +253,17 @@ ApplicationWindow {
                     Input {
                         id: query; objectName: "searchQuery"; Layout.fillWidth: true
                         Component.onCompleted: text = preferences.lastQuery
-                        placeholderText: "Game name or AppID"
-                        enabled: !backend.busy; Accessible.name: "Game name or AppID"
+                        placeholderText: "Nome do jogo ou AppID"
+                        enabled: !backend.busy; Accessible.name: "Nome do jogo ou AppID"
                         onAccepted: if (text.trim()) window.runSearch(0)
                     }
-                    Action { text: "Search"; primary: true; enabled: !backend.busy && query.text.trim().length > 0; onClicked: window.runSearch(0) }
+                    Action { text: "Buscar"; primary: true; enabled: !backend.busy && query.text.trim().length > 0; onClicked: window.runSearch(0) }
                 }
                 RowLayout {
                     Layout.fillWidth: true
                     ContentChoice { Layout.preferredWidth: 180 }
                     Hint {
-                        text: preferences.hasApiKey ? "Uses Hubcap quota" : "Connect Hubcap in Settings to search."
+                        text: preferences.hasApiKey ? "Usa cota da Hubcap" : "Conecte a Hubcap em Configurações para buscar."
                         horizontalAlignment: Text.AlignRight
                     }
                 }
@@ -294,22 +294,22 @@ ApplicationWindow {
                             Label { textFormat: Text.PlainText; text: "→"; font.pixelSize: 22; color: window.muted }
                         }
                         onClicked: window.requestFetch(modelData.appId, modelData.name)
-                        Accessible.name: "Download " + modelData.name + ", AppID " + modelData.appId + ", uses Hubcap quota"
+                        Accessible.name: "Baixar " + modelData.name + ", AppID " + modelData.appId + ", usa cota da Hubcap"
                     }
                     Column {
                         anchors.centerIn: parent; width: parent.width - 32; spacing: 10
                         visible: results.count === 0 && !backend.busy && results.height > 90
-                        PixelText { text: window.searched ? "Nothing here." : "Which game?"; font.pixelSize: 30; anchors.horizontalCenter: parent.horizontalCenter }
-                        Label { textFormat: Text.PlainText; text: window.searched ? "Try another name." : "Search above or open a ZIP."; color: window.muted; anchors.horizontalCenter: parent.horizontalCenter }
+                        PixelText { text: window.searched ? "Nada aqui." : "Qual jogo?"; font.pixelSize: 30; anchors.horizontalCenter: parent.horizontalCenter }
+                        Label { textFormat: Text.PlainText; text: window.searched ? "Tente outro nome." : "Busque acima ou abra um ZIP."; color: window.muted; anchors.horizontalCenter: parent.horizontalCenter }
                     }
                     BusyIndicator { anchors.centerIn: parent; running: backend.activity === "search"; visible: running; palette.dark: window.accent }
                 }
                 RowLayout {
                     visible: backend.games.length > 0 || backend.hasMore || backend.searchOffset > 0
                     Layout.fillWidth: true
-                    Action { text: "Previous"; Accessible.name: "Previous page"; enabled: !backend.busy && backend.searchOffset > 0; onClicked: window.runSearch(Math.max(0, backend.searchOffset - 100)) }
-                    Hint { text: "Page " + (Math.floor(backend.searchOffset / 100) + 1); horizontalAlignment: Text.AlignHCenter }
-                    Action { text: "Next"; Accessible.name: "Next page"; enabled: !backend.busy && backend.hasMore; onClicked: window.runSearch(backend.searchOffset + 100) }
+                    Action { text: "Anterior"; Accessible.name: "Página anterior"; enabled: !backend.busy && backend.searchOffset > 0; onClicked: window.runSearch(Math.max(0, backend.searchOffset - 100)) }
+                    Hint { text: "Página " + (Math.floor(backend.searchOffset / 100) + 1); horizontalAlignment: Text.AlignHCenter }
+                    Action { text: "Próxima"; Accessible.name: "Próxima página"; enabled: !backend.busy && backend.hasMore; onClicked: window.runSearch(backend.searchOffset + 100) }
                 }
             }
         }
@@ -319,8 +319,8 @@ ApplicationWindow {
                 anchors.fill: parent; spacing: 10
                 RowLayout {
                     Layout.fillWidth: true
-                    PixelText { text: backend.ready ? "Ready to add." : "Import ZIP"; Layout.fillWidth: true }
-                    Action { text: "Open ZIP"; enabled: !backend.busy; onClicked: zipDialog.open() }
+                    PixelText { text: backend.ready ? "Pronto para adicionar." : "Importar ZIP"; Layout.fillWidth: true }
+                    Action { text: "Abrir ZIP"; enabled: !backend.busy; onClicked: zipDialog.open() }
                 }
                 ScrollView {
                     id: importScroll; objectName: "importPage"
@@ -341,7 +341,7 @@ ApplicationWindow {
                             Column {
                                 width: parent.width; anchors.verticalCenter: parent.verticalCenter; spacing: 12
                                 PixelText { text: "+ ZIP"; font.pixelSize: 32; anchors.horizontalCenter: parent.horizontalCenter }
-                                Hint { width: parent.width; text: backend.activity === "import" ? "Preparing…" : "Drop your file here."; horizontalAlignment: Text.AlignHCenter }
+                                Hint { width: parent.width; text: backend.activity === "import" ? "Preparando…" : "Solte o arquivo aqui."; horizontalAlignment: Text.AlignHCenter }
                                 BusyIndicator { running: backend.activity === "import"; visible: running; anchors.horizontalCenter: parent.horizontalCenter; palette.dark: window.accent }
                             }
                             DropArea {
@@ -352,7 +352,7 @@ ApplicationWindow {
                                     window.dropHover = false
                                     if (backend.busy) return
                                     if (!drop.hasUrls || drop.urls.length !== 1) {
-                                        window.notice = "Drop a single ZIP file."
+                                        window.notice = "Solte um único arquivo ZIP."
                                         return
                                     }
                                     if (window.acceptZip(drop.urls[0]))
@@ -376,14 +376,14 @@ ApplicationWindow {
                                     ColumnLayout {
                                         Layout.fillWidth: true; spacing: 10
                                         Label { textFormat: Text.PlainText; text: backend.source; font.pixelSize: 16; color: window.ink; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true }
-                                        Hint { text: backend.counts.apps + " apps  ·  " + backend.counts.depots + " depots  ·  " + backend.counts.keys + " keys" }
+                                        Hint { text: backend.counts.apps + " apps  ·  " + backend.counts.depots + " depots  ·  " + backend.counts.keys + " chaves" }
                                     }
                                 }
-                                Input { Layout.fillWidth: true; text: backend.gameName; placeholderText: "Game name in comments"; Accessible.name: "Game name in YAML comments"; enabled: !backend.busy && !backend.applied; onTextEdited: backend.gameName = text }
-                                Action { id: details; objectName: "entriesToggle"; text: checked ? "− Hide entries" : "+ View entries"; checkable: true; flat: true; Accessible.name: "Show package entries" }
+                                Input { Layout.fillWidth: true; text: backend.gameName; placeholderText: "Nome do jogo nos comentários"; Accessible.name: "Nome do jogo nos comentários YAML"; enabled: !backend.busy && !backend.applied; onTextEdited: backend.gameName = text }
+                                Action { id: details; objectName: "entriesToggle"; text: checked ? "− Ocultar entradas" : "+ Ver entradas"; checkable: true; flat: true; Accessible.name: "Mostrar entradas do pacote" }
                                 ScrollView {
                                     visible: details.checked; Layout.fillWidth: true; Layout.preferredHeight: Math.min(140, entriesText.implicitHeight)
-                                    TextArea { id: entriesText; text: backend.preview; padding: 8; background: Rectangle { color: window.canvas; radius: 4 } readOnly: true; wrapMode: TextEdit.Wrap; selectByMouse: true; font.family: "monospace"; font.pixelSize: 12; color: window.ink; Accessible.name: "Package entries" }
+                                    TextArea { id: entriesText; text: backend.preview; padding: 8; background: Rectangle { color: window.canvas; radius: 4 } readOnly: true; wrapMode: TextEdit.Wrap; selectByMouse: true; font.family: "monospace"; font.pixelSize: 12; color: window.ink; Accessible.name: "Entradas do pacote" }
                                 }
                             }
                         }
@@ -394,22 +394,22 @@ ApplicationWindow {
                     ColumnLayout {
                         Layout.fillWidth: true; spacing: 4
                         Label { textFormat: Text.PlainText; text: "config.yaml"; color: window.ink; font.pixelSize: 13 }
-                        Label { textFormat: Text.PlainText; text: preferences.destination || "Choose SLSsteam directory"; color: window.muted; font.pixelSize: 12; elide: Text.ElideLeft; Layout.fillWidth: true }
+                        Label { textFormat: Text.PlainText; text: preferences.destination || "Escolha o diretório SLSsteam"; color: window.muted; font.pixelSize: 12; elide: Text.ElideLeft; Layout.fillWidth: true }
                     }
-                    Action { text: "Change"; flat: true; enabled: !backend.busy; onClicked: destinationDialog.open() }
+                    Action { text: "Trocar"; flat: true; enabled: !backend.busy; onClicked: destinationDialog.open() }
                 }
                 RowLayout {
                     Layout.fillWidth: true; spacing: 12
-                    Hint { visible: backend.ready && !preferences.destinationValid; text: "Choose an SLSsteam directory." }
-                    Hint { visible: backend.applied; text: "Backup saved in History." }
+                    Hint { visible: backend.ready && !preferences.destinationValid; text: "Escolha um diretório SLSsteam." }
+                    Hint { visible: backend.applied; text: "Backup salvo no Histórico." }
                     Action {
                         visible: backend.applied
-                        text: "Open Library"
+                        text: "Abrir Biblioteca"
                         onClicked: tabs.currentIndex = window.tabLibrary
                     }
                     Action {
                         objectName: "applyButton"
-                        text: backend.applied ? "Added ✓" : backend.activity === "apply" ? "Adding…" : "Add to config.yaml"
+                        text: backend.applied ? "Adicionado ✓" : backend.activity === "apply" ? "Adicionando…" : "Adicionar ao config.yaml"
                         primary: true
                         enabled: backend.ready && preferences.destinationValid && !backend.busy && !backend.applied
                         onClicked: backend.apply()
@@ -422,7 +422,7 @@ ApplicationWindow {
             ColumnLayout {
                 anchors.fill: parent; spacing: 10
                 RowLayout {
-                    PixelText { text: "Library"; Layout.fillWidth: true }
+                    PixelText { text: "Biblioteca"; Layout.fillWidth: true }
                     Action { text: "Refresh"; enabled: !backend.busy; onClicked: backend.refreshLibrary() }
                 }
                 Hint { text: backend.libraryError || "Games in config.yaml" }
@@ -440,12 +440,12 @@ ApplicationWindow {
                             ColumnLayout {
                                 Layout.fillWidth: true; spacing: 4
                                 Label { textFormat: Text.PlainText; text: modelData.name; color: window.ink; elide: Text.ElideRight; Layout.fillWidth: true }
-                                Hint { text: modelData.apps + " apps · " + modelData.depots + " depots · " + modelData.keys + " keys" }
+                                Hint { text: modelData.apps + " apps · " + modelData.depots + " depots · " + modelData.keys + " chaves" }
                             }
-                            Action { text: "Remove"; enabled: !backend.busy; Accessible.name: "Remove " + modelData.name; onClicked: { window.removingId = modelData.id; window.removingName = modelData.name; preferences.refreshSteamRunning(); removeDialog.open() } }
+                            Action { text: "Remover"; enabled: !backend.busy; Accessible.name: "Remover " + modelData.name; onClicked: { window.removingId = modelData.id; window.removingName = modelData.name; preferences.refreshSteamRunning(); removeDialog.open() } }
                         }
                     }
-                    PixelText { anchors.centerIn: parent; visible: installedList.count === 0 && !backend.libraryError; text: "No configured games."; font.pixelSize: 26 }
+                    PixelText { anchors.centerIn: parent; visible: installedList.count === 0 && !backend.libraryError; text: "Nenhum jogo configurado."; font.pixelSize: 26 }
                 }
             }
         }
@@ -453,7 +453,7 @@ ApplicationWindow {
             padding: 16; background: Item {}
             ColumnLayout {
                 anchors.fill: parent; spacing: 12
-                PixelText { text: "History" }
+                PixelText { text: "Histórico" }
                 ListView {
                     id: historyList; objectName: "historyList"
                     Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 10; model: preferences.history
@@ -462,7 +462,7 @@ ApplicationWindow {
                         required property var modelData
                         required property int index
                         width: historyList.width
-                        Accessible.name: modelData.source + (modelData.restored ? ", restored" : ", added")
+                        Accessible.name: modelData.source + (modelData.restored ? ", restaurado" : ", adicionado")
                         ColumnLayout {
                             width: parent.width; spacing: 14
                             RowLayout {
@@ -475,16 +475,16 @@ ApplicationWindow {
                                 ColumnLayout {
                                     Layout.fillWidth: true; spacing: 6
                                     Label { textFormat: Text.PlainText; text: modelData.source; color: window.ink; elide: Text.ElideRight; Layout.fillWidth: true }
-                                    Hint { text: window.formatWhen(modelData.date) + (modelData.restored ? "  ·  Restored" : "  ·  Added") }
+                                    Hint { text: window.formatWhen(modelData.date) + (modelData.restored ? "  ·  Restaurado" : "  ·  Adicionado") }
                                 }
                             }
                             RowLayout {
-                                Action { text: "Restore"; enabled: !backend.busy && !modelData.restored; Accessible.name: "Restore " + modelData.source; onClicked: { window.restoreIndex = index; window.restoreDestination = modelData.destination; restoreDialog.open() } }
-                                Action { text: "Open backup"; flat: true; Accessible.name: "Open backup for " + modelData.source; onClicked: backend.openFolder(modelData.backup) }
+                                Action { text: "Restaurar"; enabled: !backend.busy && !modelData.restored; Accessible.name: "Restaurar " + modelData.source; onClicked: { window.restoreIndex = index; window.restoreDestination = modelData.destination; restoreDialog.open() } }
+                                Action { text: "Abrir backup"; flat: true; Accessible.name: "Abrir backup de " + modelData.source; onClicked: backend.openFolder(modelData.backup) }
                             }
                         }
                     }
-                    PixelText { anchors.centerIn: parent; visible: historyList.count === 0; text: "Nothing added yet."; font.pixelSize: 26 }
+                    PixelText { anchors.centerIn: parent; visible: historyList.count === 0; text: "Nada adicionado ainda."; font.pixelSize: 26 }
                 }
             }
         }
@@ -494,37 +494,37 @@ ApplicationWindow {
             ScrollBar.horizontal: ScrollBar { policy: ScrollBar.AlwaysOff }
             ColumnLayout {
                 width: settingsScroll.width; spacing: 10
-                PixelText { text: "Settings"; Layout.margins: 16; Layout.bottomMargin: 0 }
+                PixelText { text: "Configurações"; Layout.margins: 16; Layout.bottomMargin: 0 }
                 Hint { text: "psyche " + (Qt.application.version || ""); Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.topMargin: -4 }
                 Hint {
                     visible: window.needsKey && !preferences.hasApiKey
-                    text: "Search needs a Hubcap key."
+                    text: "A busca precisa de uma chave Hubcap."
                     Layout.leftMargin: 16; Layout.rightMargin: 16
                 }
                 Card {
                     Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
                     ColumnLayout {
                         width: parent.width; spacing: 12
-                        Label { textFormat: Text.PlainText; text: "Hubcap key"; color: window.ink }
-                        Hint { visible: preferences.importedKey && !preferences.environmentKey; text: "Key from ACCELA." }
-                        Hint { visible: preferences.environmentKey; text: "Environment key active." }
+                        Label { textFormat: Text.PlainText; text: "Chave Hubcap"; color: window.ink }
+                        Hint { visible: preferences.importedKey && !preferences.environmentKey; text: "Chave do ACCELA." }
+                        Hint { visible: preferences.environmentKey; text: "Chave de ambiente ativa." }
                         RowLayout {
                             Input {
                                 id: apiKey; objectName: "apiKeyInput"; Layout.fillWidth: true
                                 Component.onCompleted: text = preferences.apiKey
                                 echoMode: reveal.checked ? TextInput.Normal : TextInput.Password
-                                placeholderText: "Paste your key"; enabled: !backend.busy; Accessible.name: "Hubcap key"
+                                placeholderText: "Cole sua chave"; enabled: !backend.busy; Accessible.name: "Chave Hubcap"
                             }
-                            Action { id: reveal; text: checked ? "Hide" : "Show"; checkable: true; Accessible.name: "Show Hubcap key" }
+                            Action { id: reveal; text: checked ? "Ocultar" : "Mostrar"; checkable: true; Accessible.name: "Mostrar chave Hubcap" }
                         }
-                        Tick { id: remember; text: "Remember on this computer"; checked: preferences.rememberKey; enabled: !backend.busy; Accessible.name: "Remember Hubcap key on this computer" }
-                        Hint { visible: remember.checked; text: "Saved locally, unencrypted." }
+                        Tick { id: remember; text: "Lembrar neste computador"; checked: preferences.rememberKey; enabled: !backend.busy; Accessible.name: "Lembrar chave Hubcap neste computador" }
+                        Hint { visible: remember.checked; text: "Salvo localmente, sem criptografia." }
                         RowLayout {
                             Action {
-                                text: "Save"; primary: true; enabled: !backend.busy
+                                text: "Salvar"; primary: true; enabled: !backend.busy
                                 onClicked: {
                                     if (preferences.savePreferences(apiKey.text, remember.checked, preferences.theme)) {
-                                        savedLabel.text = "Saved."
+                                        savedLabel.text = "Salvo."
                                         if (preferences.hasApiKey) window.needsKey = false
                                     }
                                 }
@@ -539,21 +539,21 @@ ApplicationWindow {
                         width: parent.width; spacing: 8
                         RowLayout {
                             Label { textFormat: Text.PlainText; text: "Hubcap"; color: window.ink; Layout.fillWidth: true }
-                            Action { text: backend.checkingHubcap ? "Checking…" : "Check connection"; enabled: !backend.checkingHubcap; onClicked: backend.checkHubcap() }
+                            Action { text: backend.checkingHubcap ? "Verificando…" : "Verificar conexão"; enabled: !backend.checkingHubcap; onClicked: backend.checkHubcap() }
                         }
-                        Hint { visible: !!backend.hubcapInfo.health; text: "Service: " + (backend.hubcapInfo.health || "") }
+                        Hint { visible: !!backend.hubcapInfo.health; text: "Serviço: " + (backend.hubcapInfo.health || "") }
                         Hint { visible: !!backend.hubcapInfo.healthError; text: backend.hubcapInfo.healthError || "" }
                         Hint { visible: !!backend.hubcapInfo.accountError; text: backend.hubcapInfo.accountError || "" }
                         Hint {
                             property var account: backend.hubcapInfo.account || ({})
                             visible: !!backend.hubcapInfo.account
-                            text: (account.username || "Account") + " · Today: " + (account.daily_usage ?? "—") + " / " + (account.daily_limit ?? "—")
-                                + (account.can_make_requests === false ? " · Blocked" : "")
+                            text: (account.username || "Conta") + " · Hoje: " + (account.daily_usage ?? "—") + " / " + (account.daily_limit ?? "—")
+                                + (account.can_make_requests === false ? " · Bloqueada" : "")
                         }
                         Hint {
                             property var account: backend.hubcapInfo.account || ({})
                             visible: !!account.api_key_expires_at
-                            text: "Expires: " + (account.api_key_expires_at || "")
+                            text: "Expira: " + (account.api_key_expires_at || "")
                         }
                     }
                 }
@@ -561,20 +561,20 @@ ApplicationWindow {
                     Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
                     ColumnLayout {
                         width: parent.width; spacing: 12
-                        Label { textFormat: Text.PlainText; text: "SLSsteam directory"; color: window.ink }
-                        PathField { text: preferences.destination || "Not found"; Accessible.name: "SLSsteam configuration directory" }
+                        Label { textFormat: Text.PlainText; text: "Diretório SLSsteam"; color: window.ink }
+                        PathField { text: preferences.destination || "Não encontrado"; Accessible.name: "Diretório de configuração SLSsteam" }
                         ChoiceBox {
                             visible: preferences.destinations.length > 1; Layout.fillWidth: true
                             model: preferences.destinations; textRole: "path"
                             currentIndex: window.pathIndex(preferences.destinations, preferences.destination)
-                            displayText: currentIndex < 0 ? "Choose an installation…" : currentText
+                            displayText: currentIndex < 0 ? "Escolha uma instalação…" : currentText
                             onActivated: preferences.chooseDestination(preferences.folderUrl(preferences.destinations[currentIndex].path))
-                            Accessible.name: "Detected SLSsteam installations"
+                            Accessible.name: "Instalações SLSsteam detectadas"
                         }
                         RowLayout {
-                            Action { text: "Change directory"; enabled: !backend.busy; onClicked: destinationDialog.open() }
-                            Action { text: "Detect"; enabled: !backend.busy; onClicked: preferences.detectPaths() }
-                            Label { textFormat: Text.PlainText; text: preferences.destinationValid ? "Ready" : "Select a directory"; color: window.muted; Layout.fillWidth: true; elide: Text.ElideRight }
+                            Action { text: "Trocar diretório"; enabled: !backend.busy; onClicked: destinationDialog.open() }
+                            Action { text: "Detectar"; enabled: !backend.busy; onClicked: preferences.detectPaths() }
+                            Label { textFormat: Text.PlainText; text: preferences.destinationValid ? "Pronto" : "Selecione um diretório"; color: window.muted; Layout.fillWidth: true; elide: Text.ElideRight }
                         }
                     }
                 }
@@ -606,24 +606,24 @@ ApplicationWindow {
     }
     Sheet {
         id: fetchDialog
-        title: "Download from Hubcap?"
+        title: "Baixar da Hubcap?"
         contentItem: Label {
             textFormat: Text.PlainText; color: window.ink; wrapMode: Text.WordWrap
-            Accessible.name: "Confirm Hubcap download"
-            text: "This uses Hubcap daily quota.\n\nDownload " + window.contentLabel() + " for " + (window.pendingName || ("AppID " + window.pendingAppId)) + "?"
+            Accessible.name: "Confirmar download da Hubcap"
+            text: "Isso usa a cota diária da Hubcap.\n\nBaixar " + window.contentLabel() + " para " + (window.pendingName || ("AppID " + window.pendingAppId)) + "?"
         }
         footer: DialogButtonBox {
-            Action { text: "Cancel"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
-            Action { text: "Download"; primary: true; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
+            Action { text: "Cancelar"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+            Action { text: "Baixar"; primary: true; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
         }
         onAccepted: backend.fetch(window.pendingAppId, window.pendingName)
     }
     Sheet {
         id: removeDialog
-        title: "Remove " + window.removingName + "?"
+        title: "Remover " + window.removingName + "?"
         contentItem: Label {
             textFormat: Text.PlainText
-            text: "Removes its AppIDs, depots and keys from config.yaml. This does not uninstall the game from Steam. Shared entries stay. A backup is saved."
+            text: "Remove AppIDs, depots e chaves do config.yaml. Não desinstala o jogo da Steam. Entradas compartilhadas ficam. Um backup é salvo."
                   + (preferences.steamRunning
                          ? "\n\nSteam is open. Restart Steam after removing or the library can stay out of date."
                          : "")
@@ -631,27 +631,27 @@ ApplicationWindow {
             Accessible.name: text
         }
         footer: DialogButtonBox {
-            Action { text: "Cancel"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
-            Action { text: "Remove"; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
+            Action { text: "Cancelar"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+            Action { text: "Remover"; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
         }
         onAccepted: backend.removeGame(window.removingId)
     }
     Connections { target: tabs; function onCurrentIndexChanged() { if (tabs.currentIndex === window.tabLibrary) backend.refreshLibrary() } }
     Sheet {
         id: restoreDialog
-        title: "Restore backup?"
+        title: "Restaurar backup?"
         contentItem: Label {
             textFormat: Text.PlainText
-            text: "This also undoes changes made after this import.\n\n" + window.restoreDestination
+            text: "Isso também desfaz alterações feitas após esta importação.\n\n" + window.restoreDestination
             wrapMode: Text.WrapAnywhere; color: window.ink
-            Accessible.name: "Confirm restore backup"
+            Accessible.name: "Confirmar restauração do backup"
         }
         footer: DialogButtonBox {
-            Action { text: "Cancel"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
-            Action { text: "Restore"; primary: true; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
+            Action { text: "Cancelar"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+            Action { text: "Restaurar"; primary: true; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
         }
         onAccepted: backend.restore(window.restoreIndex)
     }
-    FileDialog { id: zipDialog; title: "Open ZIP"; currentFolder: preferences.importDirectory; nameFilters: ["ZIP packages (*.zip)"]; onAccepted: backend.inspect(selectedFile) }
-    FolderDialog { id: destinationDialog; title: "SLSsteam directory"; currentFolder: preferences.folderUrl(preferences.destination); onAccepted: preferences.chooseDestination(selectedFolder) }
+    FileDialog { id: zipDialog; title: "Abrir ZIP"; currentFolder: preferences.importDirectory; nameFilters: ["Pacotes ZIP (*.zip)"]; onAccepted: backend.inspect(selectedFile) }
+    FolderDialog { id: destinationDialog; title: "Diretório SLSsteam"; currentFolder: preferences.folderUrl(preferences.destination); onAccepted: preferences.chooseDestination(selectedFolder) }
 }

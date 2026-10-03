@@ -22,7 +22,7 @@ void safePath(const QString& path) {
     for (const auto& part : QFileInfo(path).absoluteFilePath().split('/', Qt::SkipEmptyParts)) {
         current = QDir(current).filePath(part);
         if (QFileInfo(current).isSymLink())
-            fail("Symbolic link not allowed: " + current);
+            fail("Link simbólico não permitido: " + current);
     }
 }
 QByteArray read(const QString& path) {
@@ -31,7 +31,7 @@ QByteArray read(const QString& path) {
     if (!f.exists())
         return {};
     if (!f.open(QIODevice::ReadOnly))
-        fail("Could not read " + path);
+        fail("Não foi possível ler " + path);
     return f.readAll();
 }
 void write(const QString& path, const QByteArray& data) {
@@ -40,7 +40,7 @@ void write(const QString& path, const QByteArray& data) {
     if (!f.open(QIODevice::WriteOnly) ||
         !f.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner) ||
         f.write(data) != data.size() || !f.commit())
-        fail("Could not write " + path);
+        fail("Não foi possível gravar " + path);
 }
 QSet<QString> ids(const QJsonArray& array) {
     QSet<QString> result;
@@ -60,17 +60,17 @@ QJsonObject entries(const QByteArray& text) {
     validateManagedYaml(text);
     auto docs = YAML::LoadAll(text.toStdString());
     if (docs.size() > 1)
-        fail("Use only one YAML document");
+        fail("Use só um documento YAML");
     auto root = YAML::Load(text.toStdString());
     QJsonObject result;
     if (root && !root.IsNull() && !root.IsMap())
-        fail("Invalid configuration");
+        fail("Configuração inválida");
     QSet<QString> seen;
     if (root.IsMap())
         for (auto item : root) {
             auto key = QString::fromStdString(item.first.as<std::string>());
             if (seen.contains(key))
-                fail("Duplicate YAML field: " + key);
+                fail("Campo YAML duplicado: " + key);
             seen.insert(key);
         }
     for (const auto& pair : QList<QPair<QString, QString>>{{"apps", "AdditionalApps"},
@@ -84,18 +84,18 @@ QJsonObject entries(const QByteArray& text) {
         }
         if (pair.first == "keys") {
             if (!node.IsMap())
-                fail("Invalid DecryptionKeys");
+                fail("DecryptionKeys inválido");
             QJsonObject keys;
             for (auto item : node) {
                 auto key = QString::fromStdString(item.first.as<std::string>());
                 if (keys.contains(key))
-                    fail("Duplicate depot key");
+                    fail("Chave de depot duplicada");
                 keys[key] = QString::fromStdString(item.second.as<std::string>()).toLower();
             }
             result["keys"] = keys;
         } else {
             if (!node.IsSequence())
-                fail("Invalid " + pair.second);
+                fail("Inválido: " + pair.second);
             QSet<QString> values;
             for (auto item : node)
                 values.insert(QString::fromStdString(item.as<std::string>()));
@@ -172,7 +172,7 @@ QJsonObject discover(const QByteArray& text) {
 }
 void validateLedger(const QJsonObject& root) {
     auto invalid = [](const char* reason) {
-        fail(QString("Invalid library metadata (%1); restore a backup before continuing")
+        fail(QString("Metadados da biblioteca inválidos (%1); restaure um backup antes de continuar")
                  .arg(reason));
     };
     auto validId = [](const QString& id) {
@@ -183,49 +183,49 @@ void validateLedger(const QJsonObject& root) {
         for (const auto& field : {"apps", "depots"})
             if (record.contains(field) && !record[field].isNull()) {
                 if (!record[field].isArray())
-                    invalid("entry list");
+                    invalid("lista de entradas");
                 QSet<QString> seen;
                 for (auto value : record[field].toArray()) {
                     auto id = value.toString();
                     if (!value.isString() || !validId(id) || seen.contains(id))
-                        invalid("entry ID");
+                        invalid("ID de entrada");
                     seen.insert(id);
                 }
             }
         if (record.contains("keys") && !record["keys"].isNull()) {
             if (!record["keys"].isObject())
-                invalid("key map");
+                invalid("mapa de chaves");
             auto keys = record["keys"].toObject();
             for (auto it = keys.begin(); it != keys.end(); ++it)
                 if (!validId(it.key()) || !it.value().isString() ||
                     !QRegularExpression("^[a-fA-F0-9]{64}$")
                          .match(it.value().toString())
                          .hasMatch())
-                    invalid("depot key");
+                    invalid("chave de depot");
         }
     };
     if (root["version"].toInt() != 1 || !root["games"].isArray() || !root["managed"].isObject())
-        invalid("schema");
+        invalid("esquema");
     auto managed = root["managed"].toObject();
     for (const auto& field : {"apps", "depots", "keys"})
         if (!managed.contains(field) ||
             (QString(field) == "keys" ? !managed[field].isObject() : !managed[field].isArray()))
-            invalid("managed entries");
+            invalid("entradas gerenciadas");
     validateEntries(managed);
     QSet<QString> seen;
     for (auto value : root["games"].toArray()) {
         if (!value.isObject())
-            invalid("game record");
+            invalid("registro de jogo");
         auto game = value.toObject();
         auto id = game["id"].toString();
         if (id.isEmpty() || seen.contains(id) || !game["name"].isString() ||
             game["name"].toString().trimmed().isEmpty())
-            invalid("game identity");
+            invalid("identidade do jogo");
         seen.insert(id);
         if (game.contains("appId") &&
             (!game["appId"].isString() ||
              (!game["appId"].toString().isEmpty() && !validId(game["appId"].toString()))))
-            invalid("game AppID");
+            invalid("AppID do jogo");
         validateEntries(game);
     }
 }
@@ -239,7 +239,7 @@ QJsonObject load(const QString& directory, const QByteArray& config) {
     auto root = doc.object();
     if (error.error != QJsonParseError::NoError || root["version"].toInt() != 1 ||
         !root["games"].isArray() || !root["managed"].isObject())
-        fail("Invalid library metadata; restore a backup before continuing");
+        fail("Metadados da biblioteca inválidos; restaure um backup antes de continuar");
     validateLedger(root);
     return root;
 }
@@ -261,7 +261,7 @@ QString removalBackup(const QString& directory, const QByteArray& config) {
                                            QUuid::createUuid().toString(QUuid::WithoutBraces));
     safePath(backup);
     if (!QDir().mkpath(backup))
-        fail("Could not create backup");
+        fail("Não foi possível criar backup");
     write(backup + "/config.yaml", config);
     write(backup + "/files.txt", "1 config.yaml\n");
     addLedgerBackup(directory, backup);
@@ -291,7 +291,7 @@ QByteArray removeEntries(QByteArray text, const QJsonObject& remove) {
             if (pair.first == "keys" &&
                 QString::fromStdString(item.second.as<std::string>()).toLower() !=
                     keyValues[id].toString())
-                fail("Depot key changed outside psyche; removal cancelled: " + id);
+                fail("Chave de depot mudou fora do psyche; remoção cancelada: " + id);
             int offset = value.Mark().pos, start = text.lastIndexOf('\n', offset - 1) + 1,
                 end = text.indexOf('\n', offset);
             if (end < 0)
@@ -307,7 +307,7 @@ QByteArray removeEntries(QByteArray text, const QJsonObject& remove) {
                                                       "'|[a-fA-F0-9]{64}),?\\s*(?:#.*)?$"
                                                 : "^\\s*(?:-\\s+)?" + token + ",?\\s*(?:#.*)?$";
             if (!QRegularExpression(pattern).match(line.trimmed()).hasMatch())
-                fail("Entry formatting changed outside psyche; removal cancelled: " + id);
+                fail("Formatação de entradas mudou fora do psyche; remoção cancelada: " + id);
             spans.append({start, end - start});
         }
         std::sort(spans.begin(), spans.end(), [](auto a, auto b) { return a.first > b.first; });
@@ -330,7 +330,7 @@ QByteArray removeEntries(QByteArray text, const QJsonObject& remove) {
                     break;
             }
             if (end >= text.size())
-                fail("Could not preserve empty YAML section");
+                fail("Não foi possível preservar seção YAML vazia");
             text.remove(end, 1);
             text.remove(start, 1);
         }
@@ -342,11 +342,11 @@ QByteArray removeEntries(QByteArray text, const QJsonObject& remove) {
 } // namespace
 QString applyPackage(const Package& package, const QString& directory) {
     if (directory.trimmed().isEmpty())
-        fail("Choose a destination");
+        fail("Escolha um destino");
     safePath(directory);
     QLockFile lock(QDir(directory).filePath(".psyche.lock"));
     if (!lock.tryLock(100))
-        fail("Another operation is modifying this configuration");
+        fail("Outra operação está modificando esta configuração");
     auto config = read(QDir(directory).filePath("config.yaml"));
     auto before = entries(config);
     auto ledger = load(directory, config);
@@ -367,7 +367,7 @@ QString applyPackage(const Package& package, const QString& directory) {
     auto incoming = package.games;
     if (incoming.isEmpty()) {
         auto copy = package;
-        copy.setGameName(package.labels.isEmpty() ? "Imported game" : package.labels.first());
+        copy.setGameName(package.labels.isEmpty() ? "Jogo importado" : package.labels.first());
         incoming = copy.games;
     }
     auto games = ledger["games"].toArray();
@@ -445,11 +445,11 @@ QVariantList installedGames(const QString& directory) {
 QString removeInstalledGame(const QString& directory, const QString& gameId) {
     if (directory.trimmed().isEmpty() ||
         !QFileInfo(QDir(directory).filePath("config.yaml")).isFile())
-        fail("Configuration is unavailable; refresh the library");
+        fail("Configuração indisponível; atualize a biblioteca");
     safePath(directory);
     QLockFile lock(QDir(directory).filePath(".psyche.lock"));
     if (!lock.tryLock(100))
-        fail("Another operation is modifying this configuration");
+        fail("Outra operação está modificando esta configuração");
     auto config = read(QDir(directory).filePath("config.yaml"));
     entries(config);
     auto ledger = load(directory, config);
@@ -462,7 +462,7 @@ QString removeInstalledGame(const QString& directory, const QString& gameId) {
         else
             remaining.append(game);
     if (selected.isEmpty())
-        fail("Game is no longer in the library; refresh and try again");
+        fail("O jogo não está mais na biblioteca; atualize e tente de novo");
     // Recovered comments don't list depots/keys skipped as duplicates on older imports.
     bool recovered = false;
     QSet<QString> trackedApps;
@@ -474,8 +474,8 @@ QString removeInstalledGame(const QString& directory, const QString& gameId) {
     auto untrackedApps = ids(entries(config)["apps"].toArray()) - trackedApps;
     if (recovered && (!remaining.isEmpty() || !untrackedApps.isEmpty()) &&
         (!selected["depots"].toArray().isEmpty() || !selected["keys"].toObject().isEmpty()))
-        fail("Re-import legacy game manifests before removing depot/key entries; their shared "
-             "references are unknown.");
+        fail("Reimporte manifestos legados do jogo antes de remover entradas de depot/chave; as referências compartilhadas "
+             "são desconhecidas.");
     QJsonObject remove, managed = ledger["managed"].toObject();
     for (const auto& field : {"apps", "depots"}) {
         auto values = ids(selected[field].toArray()) & ids(managed[field].toArray());
@@ -525,10 +525,10 @@ QString removeInstalledGame(const QString& directory, const QString& gameId) {
 
 void restoreBackup(const QString& directory, const QString& backup) {
     if (directory.trimmed().isEmpty())
-        fail("Choose a destination");
+        fail("Escolha um destino");
     safePath(directory);
     QLockFile lock(QDir(directory).filePath(".psyche.lock"));
     if (!lock.tryLock(100))
-        fail("Another operation is modifying this configuration");
+        fail("Outra operação está modificando esta configuração");
     restoreBackupContents(directory, backup, true);
 }

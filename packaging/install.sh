@@ -23,7 +23,7 @@ cat > "$data_home/applications/psyche.desktop" <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=psyche
-Comment=Import game entries into SLSsteam
+Comment=Importa entradas de jogos no SLSsteam
 Exec="$exec_path"
 Icon=psyche
 Terminal=false
@@ -32,4 +32,4 @@ StartupWMClass=psyche
 DESKTOP
 if command -v update-desktop-database >/dev/null 2>&1; then update-desktop-database "$data_home/applications" >/dev/null 2>&1 || :; fi
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then gtk-update-icon-cache -f -t "$data_home/icons/hicolor" >/dev/null 2>&1 || :; fi
-printf 'Installed: %s/bin/psyche\nMenu shortcut: psyche\n' "$destination"
+printf 'Instalado: %s/bin/psyche\nAtalho no menu: psyche\n' "$destination"

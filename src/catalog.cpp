@@ -31,7 +31,7 @@ Catalog::Catalog(QString apiKey, QUrl base, QUrl appInfo)
 QString Catalog::validateAppId(const QString& value) {
     if (!QRegularExpression("^[1-9][0-9]{0,9}$").match(value).hasMatch() ||
         value.toULongLong() > 4294967295ULL)
-        error("Invalid AppID: " + value);
+        error("AppID inválido: " + value);
     return value;
 }
 QByteArray Catalog::get(const QString& endpoint,
@@ -40,9 +40,9 @@ QByteArray Catalog::get(const QString& endpoint,
                         bool authenticated,
                         int timeout) const {
     if (authenticated && m_key.isEmpty())
-        error("Set your Hubcap key in the app or PSYCHE_HUBCAP_API_KEY.");
+        error("Defina sua chave Hubcap no app ou PSYCHE_HUBCAP_API_KEY.");
     if (authenticated && (m_key.contains('\r') || m_key.contains('\n')))
-        error("Invalid Hubcap key.");
+        error("Chave Hubcap inválida.");
     auto url = m_base;
     url.setPath(url.path() + endpoint);
     url.setQuery(query);
@@ -80,26 +80,26 @@ QByteArray Catalog::get(const QString& endpoint,
     read();
     timer.stop();
     if (tooLarge)
-        error("Hubcap response exceeds size limit.");
+        error("Resposta da Hubcap excede o limite de tamanho.");
     if (timedOut)
-        error("Hubcap request timed out.");
+        error("Requisição à Hubcap expirou.");
     int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     if (status == 401)
-        error("Missing, invalid, or expired Hubcap key (401). Renew it if it expired.");
+        error("Chave Hubcap ausente, inválida ou expirada (401). Renove se expirou.");
     if (status == 403)
-        error("Hubcap access denied (403).");
+        error("Acesso negado pela Hubcap (403).");
     if (status == 404)
-        error("AppID/package not found on Hubcap (404).");
+        error("AppID/pacote não encontrado na Hubcap (404).");
     if (status == 429)
-        error("Hubcap rate limit reached (429).");
+        error("Limite da Hubcap atingido (429).");
     if (status == 503 && endpoint == "/health")
         return data;
     if (status >= 300)
-        error(QString("Hubcap API error (HTTP %1).").arg(status));
+        error(QString("Erro da API Hubcap (HTTP %1).").arg(status));
     if (reply->error() != QNetworkReply::NoError)
-        error("Hubcap connection error: " + reply->errorString());
+        error("Erro de conexão com a Hubcap: " + reply->errorString());
     if (status != 200)
-        error("Unexpected Hubcap response.");
+        error("Resposta inesperada da Hubcap.");
     return data;
 }
 namespace {
@@ -107,7 +107,7 @@ QVariantMap responseObject(const QByteArray& bytes) {
     QJsonParseError parse;
     auto doc = QJsonDocument::fromJson(bytes, &parse);
     if (parse.error != QJsonParseError::NoError || !doc.isObject())
-        error("Invalid Hubcap status response.");
+        error("Resposta de status Hubcap inválida.");
     return doc.object().toVariantMap();
 }
 } // namespace
@@ -115,13 +115,13 @@ QVariantMap Catalog::health() const {
     auto result = responseObject(get("/health", {}, 256 * 1024, false));
     auto status = result.value("status").toString();
     if (status != "healthy" && status != "degraded")
-        error("Unknown Hubcap health status.");
+        error("Estado de saúde Hubcap desconhecido.");
     return {{"status", status}};
 }
 QVariantMap Catalog::stats() const {
     auto result = responseObject(get("/user/stats", {}, 256 * 1024));
     if (result.contains("error"))
-        error("Hubcap could not return account statistics.");
+        error("A Hubcap não retornou estatísticas da conta.");
     QVariantMap safe;
     for (const auto& field : {"username",
                               "daily_usage",
@@ -132,14 +132,14 @@ QVariantMap Catalog::stats() const {
         if (result.contains(field))
             safe[field] = result[field];
     if (safe.isEmpty())
-        error("Missing Hubcap account statistics.");
+        error("Estatísticas da conta Hubcap ausentes.");
     return safe;
 }
 SearchPage Catalog::search(const QString& query, int offset) const {
     if (query.trimmed().isEmpty())
-        error("Enter a game name.");
+        error("Digite o nome do jogo.");
     if (offset < 0)
-        error("Invalid offset.");
+        error("Deslocamento inválido.");
     QUrlQuery params;
     params.addQueryItem("search", query.trimmed());
     params.addQueryItem("limit", "100");
@@ -149,7 +149,7 @@ SearchPage Catalog::search(const QString& query, int offset) const {
     QJsonParseError parseError;
     auto doc = QJsonDocument::fromJson(bytes, &parseError);
     if (parseError.error != QJsonParseError::NoError)
-        error("Invalid JSON response from Hubcap.");
+        error("Resposta JSON inválida da Hubcap.");
     QJsonArray rows;
     auto root = doc.object();
     if (doc.isArray())
@@ -159,12 +159,12 @@ SearchPage Catalog::search(const QString& query, int offset) const {
     else if (root.value("results").isArray())
         rows = root.value("results").toArray();
     else
-        error("Invalid Hubcap search format.");
+        error("Formato de busca Hubcap inválido.");
     SearchPage result;
     QSet<QString> seen;
     for (auto row : rows) {
         if (!row.isObject())
-            error("Invalid Hubcap result.");
+            error("Resultado Hubcap inválido.");
         auto object = row.toObject();
         auto appId = field(object, {"game_id", "app_id", "appid", "appId", "id"});
         try {
@@ -177,7 +177,7 @@ SearchPage Catalog::search(const QString& query, int offset) const {
         seen.insert(appId);
         auto name = field(object, {"name", "game_name", "title"});
         result.games.append(
-            QVariantMap{{"appId", appId}, {"name", name.isEmpty() ? "Unnamed" : name}});
+            QVariantMap{{"appId", appId}, {"name", name.isEmpty() ? "Sem nome" : name}});
     }
     auto total = root.value("total_count");
     bool valid = false;
@@ -187,14 +187,14 @@ SearchPage Catalog::search(const QString& query, int offset) const {
 }
 QString Catalog::contentLabel(const QString& content) {
     if (content == "full")
-        return "Full Lua";
+        return "Lua completo";
     if (content == "basegame")
-        return "Lua • base game";
+        return "Lua • jogo base";
     if (content == "dlc")
         return "Lua • DLCs";
     if (content == "zip")
-        return "Full ZIP";
-    error("Invalid content. Use full, basegame, dlc or zip.");
+        return "ZIP completo";
+    error("Conteúdo inválido. Use full, basegame, dlc ou zip.");
     return {};
 }
 Package Catalog::fetch(const QString& appId, const QString& content) const {
@@ -208,7 +208,7 @@ Package Catalog::fetch(const QString& appId, const QString& content) const {
         auto bytes = get("/manifest/" + appId, {}, 32 * 1024 * 1024);
         QTemporaryFile zip;
         if (!zip.open() || zip.write(bytes) != bytes.size() || !zip.flush())
-            error("Failed to prepare temporary ZIP.");
+            error("Falha ao preparar ZIP temporário.");
         package = readPackage(zip.fileName());
     }
     package.mainAppId = appId;
