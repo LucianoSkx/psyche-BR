@@ -1,0 +1,23 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build bundle in Debian container
+        run: |
+          docker build -f packaging/Dockerfile -t psyche-bundle .
+          docker create --name bundle psyche-bundle
+          docker cp bundle:/bundle ./bundle
+          ls ./bundle
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            bundle/psyche-*-setup.zip
+            bundle/psyche-*-setup.zip.sha256

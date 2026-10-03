@@ -3,6 +3,7 @@
 from pathlib import Path
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -10,7 +11,8 @@ import sys
 import zipfile
 
 root = Path(sys.argv[1])
-qt = Path("/usr/lib/x86_64-linux-gnu/qt6")
+qt = Path(os.environ.get("PSYCHE_QT_DIR", "/usr/lib/x86_64-linux-gnu/qt6"))
+scanner = os.environ.get("PSYCHE_QMLIMPORTSCANNER", "/usr/lib/qt6/libexec/qmlimportscanner")
 cmake = Path("CMakeLists.txt").read_text()
 match = re.search(r"project\(Psyche VERSION ([0-9.]+)", cmake)
 if not match:
@@ -31,7 +33,7 @@ def copy_files(source: Path, destination: Path, names: list[str]) -> None:
 imports = json.loads(
     subprocess.check_output(
         [
-            "/usr/lib/qt6/libexec/qmlimportscanner",
+            scanner,
             "-rootPath",
             "qml",
             "-importPath",
@@ -137,7 +139,7 @@ if Path("LICENSE").is_file():
 shutil.copy2("qml/fonts/OFL.txt", root / "licenses/PixelifySans-OFL.txt")
 (root / "licenses" / "THIRD_PARTY.md").write_text(
     """This bundle ships Qt 6, libarchive, yaml-cpp, OpenSSL, ICU, and related
-shared libraries from Debian 13. Shared objects in `lib/` can be replaced
+shared libraries from the build system. Shared objects in `lib/` can be replaced
 with compatible builds. Psyche itself is MIT (`LICENSE`). Pixelify Sans is
 SIL OFL (`PixelifySans-OFL.txt`).
 """
