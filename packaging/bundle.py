@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.request
 import zipfile
 
 root = Path(sys.argv[1])
@@ -39,8 +40,45 @@ def copy_files(source: Path, destination: Path, names: list[str]) -> None:
 
 
 (root / "lib").mkdir(exist_ok=True)
-if Path("packaging/depotdownloader").is_dir():
-    shutil.copytree("packaging/depotdownloader", root / "depotdownloader", dirs_exist_ok=True)
+
+# DepotDownloader is GPL-2.0 and is not vendored in this repo. Fetch the pinned
+# release from upstream at build time; the bundle ships it unmodified.
+DD_VERSION = os.environ.get("PSYCHE_DEPOTDOWNLOADER_VERSION", "3.4.0")
+DD_URL = (
+    "https://github.com/SteamRE/DepotDownloader/releases/download/"
+    f"DepotDownloader_{DD_VERSION}/DepotDownloader-framework.zip"
+)
+dd_dir = root / "depotdownloader"
+dd_dir.mkdir(exist_ok=True)
+dd_zip = root / "depotdownloader.zip"
+if not dd_zip.exists():
+    try:
+        with urllib.request.urlopen(DD_URL, timeout=120) as response:
+            dd_zip.write_bytes(response.read())
+    except Exception as error:  # noqa: BLE001
+        raise SystemExit(f"Could not download DepotDownloader: {error}")
+with zipfile.ZipFile(dd_zip) as archive:
+    for member in archive.namelist():
+        name = Path(member).name
+        if member.endswith("/") or not name:
+            continue
+        if not name.endswith((".dll", ".json")):
+            continue
+        target = dd_dir / name
+        if not target.exists():
+            with archive.open(member) as source, target.open("wb") as destination:
+                shutil.copyfileobj(source, destination)
+dd_zip.unlink()
+(dd_dir / "DepotDownloader.runtimeconfig.json").write_text(
+    """{
+  "runtimeOptions": {
+    "tfm": "net9.0",
+    "rollForward": "LatestMajor",
+    "framework": { "name": "Microsoft.NETCore.App", "version": "9.0.0" }
+  }
+}
+"""
+)
 
 imports = json.loads(
     subprocess.check_output(
@@ -151,11 +189,20 @@ if Path("LICENSE").is_file():
 (root / "licenses").mkdir(exist_ok=True)
 shutil.copy2("qml/fonts/OFL.txt", root / "licenses/PixelifySans-OFL.txt")
 (root / "licenses" / "THIRD_PARTY.md").write_text(
-    """This bundle ships Qt 6, libarchive, yaml-cpp, OpenSSL, ICU, and related
+    f"""This bundle ships Qt 6, libarchive, yaml-cpp, OpenSSL, ICU, and related
 shared libraries from the build system. Shared objects in `lib/` can be replaced
 with compatible builds. Psyche itself is MIT (`LICENSE`). Pixelify Sans is
 SIL OFL (`PixelifySans-OFL.txt`).
+
+`depotdownloader/` holds DepotDownloader {DD_VERSION} (https://github.com/SteamRE/DepotDownloader),
+downloaded unmodified from its GitHub release. DepotDownloader is GPL-2.0 and is
+invoked as a separate process by the game download feature; its source is at the
+URL above. It is not linked into Psyche, which stays MIT.
 """
+)
+urllib.request.urlretrieve(
+    "https://raw.githubusercontent.com/SteamRE/DepotDownloader/master/LICENSE",
+    root / "licenses" / "DepotDownloader-GPL-2.0.txt",
 )
 
 (root / "INSTALL.md").write_text(
