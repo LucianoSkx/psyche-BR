@@ -11,8 +11,18 @@ import sys
 import zipfile
 
 root = Path(sys.argv[1])
-qt = Path(os.environ.get("PSYCHE_QT_DIR", "/usr/lib/x86_64-linux-gnu/qt6"))
-scanner = os.environ.get("PSYCHE_QMLIMPORTSCANNER", "/usr/lib/qt6/libexec/qmlimportscanner")
+def _first_existing(*candidates):
+    for candidate in candidates:
+        if Path(candidate).exists():
+            return candidate
+    return candidates[0]
+
+qt = Path(os.environ.get(
+    "PSYCHE_QT_DIR",
+    _first_existing("/usr/lib/qt6", "/usr/lib/x86_64-linux-gnu/qt6")))
+scanner = os.environ.get(
+    "PSYCHE_QMLIMPORTSCANNER",
+    _first_existing("/usr/lib/qt6/qmlimportscanner", "/usr/lib/qt6/libexec/qmlimportscanner"))
 cmake = Path("CMakeLists.txt").read_text()
 match = re.search(r"project\(Psyche VERSION ([0-9.]+)", cmake)
 if not match:
@@ -29,6 +39,8 @@ def copy_files(source: Path, destination: Path, names: list[str]) -> None:
 
 
 (root / "lib").mkdir(exist_ok=True)
+if Path("packaging/depotdownloader").is_dir():
+    shutil.copytree("packaging/depotdownloader", root / "depotdownloader", dirs_exist_ok=True)
 
 imports = json.loads(
     subprocess.check_output(
@@ -58,6 +70,7 @@ for types in (root / "qml").rglob("*.qmltypes"):
 
 copy_files(qt / "plugins" / "platforms", root / "plugins" / "platforms", [
     "libqxcb.so",
+    "libqwayland.so",
     "libqwayland-generic.so",
 ])
 copy_files(qt / "plugins" / "imageformats", root / "plugins" / "imageformats", [

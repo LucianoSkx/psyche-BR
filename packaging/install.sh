@@ -4,7 +4,7 @@ bundle_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 destination="${1:-$HOME/.local/share/psyche}"
 mkdir -p "$destination/runtime" "$destination/bin"
 destination=$(CDPATH= cd -- "$destination" && pwd)
-cp -R --remove-destination "$bundle_dir/lib" "$bundle_dir/plugins" "$bundle_dir/qml" "$bundle_dir/bin" "$bundle_dir/licenses" "$bundle_dir/fontconfig" "$destination/runtime/"
+cp -R --remove-destination "$bundle_dir/lib" "$bundle_dir/plugins" "$bundle_dir/qml" "$bundle_dir/bin" "$bundle_dir/licenses" "$bundle_dir/fontconfig" "$bundle_dir/depotdownloader" "$destination/runtime/"
 cp --remove-destination "$bundle_dir/psyche" "$destination/runtime/psyche"
 cp "$bundle_dir/psyche.svg" "$destination/psyche.svg"
 cat > "$destination/bin/psyche" <<'LAUNCHER'

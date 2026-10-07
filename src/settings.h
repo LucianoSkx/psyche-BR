@@ -20,12 +20,14 @@ class AppSettings : public QObject {
     Q_PROPERTY(QVariantList destinations READ destinations NOTIFY changed)
     Q_PROPERTY(QVariantList steamDirectories READ steamDirectories NOTIFY changed)
     Q_PROPERTY(QVariantList libraries READ libraries NOTIFY changed)
+    Q_PROPERTY(QString downloadLibrary READ downloadLibrary NOTIFY changed)
     Q_PROPERTY(QString apiKey READ apiKey NOTIFY changed)
     Q_PROPERTY(bool hasApiKey READ hasApiKey NOTIFY changed)
     Q_PROPERTY(bool importedKey READ importedKey NOTIFY changed)
     Q_PROPERTY(bool environmentKey READ environmentKey NOTIFY changed)
     Q_PROPERTY(bool rememberKey READ rememberKey NOTIFY changed)
     Q_PROPERTY(QString downloadContent READ downloadContent NOTIFY changed)
+    Q_PROPERTY(QString downloadOS READ downloadOS NOTIFY changed)
     Q_PROPERTY(QString theme READ theme NOTIFY changed)
     Q_PROPERTY(QString lastQuery READ lastQuery NOTIFY changed)
     Q_PROPERTY(QUrl importDirectory READ importDirectory NOTIFY changed)
@@ -57,6 +59,7 @@ public:
     QVariantList destinations() const { return m_destinations; }
     QVariantList steamDirectories() const { return m_steams; }
     QVariantList libraries() const { return m_libraries; }
+    QString downloadLibrary() const { return m_values.value("downloadLibrary").toString(); }
     QString apiKey() const { return m_sessionKey; }
     QString effectiveApiKey() const;
     bool hasApiKey() const { return !effectiveApiKey().isEmpty(); }
@@ -65,10 +68,13 @@ public:
     bool rememberKey() const { return m_values.value("rememberKey").toBool(false); }
     QString downloadContent() const;
     Q_INVOKABLE bool setDownloadContent(QString content);
+    QString downloadOS() const;
+    Q_INVOKABLE bool setDownloadOS(QString os);
+    Q_INVOKABLE bool chooseDownloadLibrary(QUrl directory);
     QString theme() const { return m_values.value("theme").toString("system"); }
     QString lastQuery() const { return m_values.value("lastQuery").toString(); }
     QUrl importDirectory() const;
-    int lastTab() const { return qBound(0, m_values.value("lastTab").toInt(), 4); }
+    int lastTab() const { return qBound(0, m_values.value("lastTab").toInt(), 5); }
     int windowWidth() const { return qBound(620, m_values.value("windowWidth").toInt(1000), 2400); }
     int windowHeight() const {
         return qBound(580, m_values.value("windowHeight").toInt(800), 1600);

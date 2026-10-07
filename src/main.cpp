@@ -64,7 +64,9 @@ int main(int argc, char** argv) {
     engine.rootContext()->setContextProperty("preferences", &settings);
     engine.rootContext()->setContextProperty("artwork", &artwork);
     engine.loadFromModule("Psyche", "Main");
-    if (engine.rootObjects().isEmpty())
+    if (engine.rootObjects().isEmpty()) {
+        qWarning("Psyche: falha ao carregar a interface");
         return 1;
+    }
     return app.exec();
 }

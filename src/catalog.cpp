@@ -1,5 +1,8 @@
 #include "catalog.h"
+#include "ranking.h"
+#include <QDir>
 #include <QEventLoop>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -7,8 +10,12 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QRegularExpression>
+#include <QSaveFile>
 #include <QTemporaryFile>
 #include <QTimer>
+#include <archive.h>
+#include <archive_entry.h>
+#include <memory>
 #include <stdexcept>
 namespace {
 void error(const QString& text) {
@@ -179,6 +186,7 @@ SearchPage Catalog::search(const QString& query, int offset) const {
         result.games.append(
             QVariantMap{{"appId", appId}, {"name", name.isEmpty() ? "Sem nome" : name}});
     }
+    result.games = Ranking::rankGames(result.games, query);
     auto total = root.value("total_count");
     bool valid = false;
     auto count = total.toVariant().toLongLong(&valid);
@@ -217,6 +225,93 @@ Package Catalog::fetch(const QString& appId, const QString& content) const {
     return package;
 }
 
+QMap<QString, QString> Catalog::fetchManifests(const QString& appId, const QString& destDir) const {
+    validateAppId(appId);
+    auto bytes = get("/manifest/" + appId, {}, 32 * 1024 * 1024);
+    QTemporaryFile zip;
+    if (!zip.open() || zip.write(bytes) != bytes.size() || !zip.flush())
+        error("Falha ao preparar ZIP temporário.");
+    QDir().mkpath(destDir);
+    archive* ar = archive_read_new();
+    archive_read_support_format_zip(ar);
+    archive_read_support_filter_all(ar);
+    auto deleter = [](archive* a) { archive_read_free(a); };
+    std::unique_ptr<archive, decltype(deleter)> holder(ar, deleter);
+    if (archive_read_open_filename(ar, zip.fileName().toLocal8Bit(), 16384) != ARCHIVE_OK)
+        error("ZIP de manifestos inválido.");
+    QMap<QString, QString> manifests;
+    archive_entry* entry;
+    while (archive_read_next_header(ar, &entry) == ARCHIVE_OK) {
+        const auto base = QFileInfo(QString::fromUtf8(archive_entry_pathname(entry))).fileName();
+        if (!base.endsWith(".manifest")) {
+            archive_read_data_skip(ar);
+            continue;
+        }
+        QByteArray data;
+        char buffer[16384];
+        la_ssize_t n;
+        while ((n = archive_read_data(ar, buffer, sizeof(buffer))) > 0)
+            data.append(buffer, n);
+        if (n < 0)
+            error("ZIP de manifestos danificado.");
+        if (data.size() < 16)
+            error("Manifesto suspeito (tamanho inválido): " + base);
+        QSaveFile out(destDir + "/" + base);
+        if (!out.open(QIODevice::WriteOnly) || out.write(data) != data.size() || !out.commit())
+            error("Falha ao extrair " + base);
+        const auto match = QRegularExpression("^(\\d+)_(\\d+)\\.manifest$").match(base);
+        if (match.hasMatch())
+            manifests[match.captured(1)] = match.captured(2);
+    }
+    if (manifests.isEmpty())
+        error("Nenhum manifesto encontrado no pacote da Hubcap.");
+    return manifests;
+}
+
+QStringList Catalog::supportedPlatforms(const QString& appId) const {
+    QSet<QString> platforms;
+    for (const auto& entry : depotDetails(appId))
+        for (const auto& os : entry.value("oslist").toList())
+            platforms.insert(os.toString());
+    return platforms.values();
+}
+QList<QVariantMap> Catalog::depotDetails(const QString& appId) const {
+    try {
+        validateAppId(appId);
+        auto bytes = Catalog({}, m_appInfo).get("/v1/info/" + appId, {}, 4 * 1024 * 1024, false, 15000);
+        QJsonParseError parse;
+        auto doc = QJsonDocument::fromJson(bytes, &parse);
+        if (parse.error != QJsonParseError::NoError || !doc.isObject())
+            return {};
+        auto info = doc.object()["data"].toObject().value(appId).toObject();
+        QList<QVariantMap> result;
+        const auto depotsObj = info.value("depots").toObject();
+        for (auto it = depotsObj.constBegin(); it != depotsObj.constEnd(); ++it) {
+            bool ok;
+            it.key().toUInt(&ok);
+            if (!ok || it.key() == appId)
+                continue;
+            const auto depot = it.value().toObject();
+            const auto oslist = depot.value("config").toObject().value("oslist").toString();
+            QStringList normalized;
+            for (const auto& raw : oslist.split(',', Qt::SkipEmptyParts)) {
+                auto value = raw.trimmed().toLower();
+                if (value == QStringLiteral("macos") || value == QStringLiteral("osx"))
+                    value = QStringLiteral("mac");
+                if (QStringList{"linux", "windows", "mac"}.contains(value))
+                    normalized.append(value);
+            }
+            if (oslist.isEmpty() || !normalized.isEmpty())
+                result.append({{"depot", it.key()},
+                               {"oslist", normalized},
+                               {"name", depot.value("name").toString()},
+                               {"dlc", depot.contains("dlcappid") && !depot.value("dlcappid").isNull()}});
+        }
+        return result;
+    } catch (const std::exception&) {
+        return {};
+    }
+}
 void Catalog::promoteKeyedApps(Package& package, QUrl base) {
     if (!base.isValid() || base.isEmpty())
         return;

@@ -19,9 +19,10 @@ ApplicationWindow {
     readonly property color accent: "#c4c4ca"
     readonly property int tabGames: 0
     readonly property int tabImport: 1
-    readonly property int tabLibrary: 2
-    readonly property int tabHistory: 3
-    readonly property int tabSettings: 4
+    readonly property int tabDownloads: 2
+    readonly property int tabLibrary: 3
+    readonly property int tabHistory: 4
+    readonly property int tabSettings: 5
     color: canvas
     font.family: "Sans Serif"; font.pixelSize: 14
     palette.window: canvas; palette.base: surface; palette.text: ink
@@ -49,6 +50,13 @@ ApplicationWindow {
             return
         }
         preferences.saveWindow(width, height)
+    }
+    function downloadOSIndex() {
+        const values = backend.platforms.length > 0 ? backend.platforms : ["linux", "windows", "mac"]
+        return Math.max(0, values.indexOf(preferences.downloadOS))
+    }
+    function formatOS(value) {
+        return value === "linux" ? "Linux" : value === "windows" ? "Windows" : "macOS"
     }
     function contentLabel() {
         const i = ["full", "basegame", "dlc", "zip"].indexOf(preferences.downloadContent)
@@ -231,11 +239,12 @@ ApplicationWindow {
             TabBar {
                 id: tabs; objectName: "mainTabs"
                 Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
-                currentIndex: preferences.lastTab
+                Component.onCompleted: currentIndex = preferences.lastTab
                 onCurrentIndexChanged: if (window.hydrated) preferences.saveNavigation(currentIndex, window.lastSearch)
                 background: Item {}
                 NavTab { text: "Jogos"; objectName: "searchTab" }
                 NavTab { text: "Importar"; objectName: "importTab" }
+                NavTab { text: "Downloads"; objectName: "downloadsTab" }
                 NavTab { text: "Biblioteca"; objectName: "libraryTab" }
                 NavTab { text: "Histórico"; objectName: "historyTab" }
                 NavTab { text: "Configurações"; objectName: "settingsTab" }
@@ -257,6 +266,16 @@ ApplicationWindow {
                         enabled: !backend.busy; Accessible.name: "Nome do jogo ou AppID"
                         onAccepted: if (text.trim()) window.runSearch(0)
                     }
+                    Action {
+                        text: "Apagar"; enabled: !backend.busy && query.text.length > 0; Accessible.name: "Apagar texto da busca"
+                        ToolTip.visible: hovered; ToolTip.text: "Limpar a caixa de busca"
+                        onClicked: { query.text = ""; query.forceActiveFocus() }
+                    }
+                    Action {
+                        text: "Colar"; enabled: !backend.busy; Accessible.name: "Colar texto na busca"
+                        ToolTip.visible: hovered; ToolTip.text: "Colar da área de transferência"
+                        onClicked: { query.forceActiveFocus(); query.paste() }
+                    }
                     Action { text: "Buscar"; primary: true; enabled: !backend.busy && query.text.trim().length > 0; onClicked: window.runSearch(0) }
                 }
                 RowLayout {
@@ -266,6 +285,10 @@ ApplicationWindow {
                         text: preferences.hasApiKey ? "Usa cota da Hubcap" : "Conecte a Hubcap em Configurações para buscar."
                         horizontalAlignment: Text.AlignRight
                     }
+                }
+                Label {
+                    visible: backend.networkIssue.length > 0; text: backend.networkIssue
+                    color: "#e06c75"; font.pixelSize: 12; Layout.fillWidth: true
                 }
                 ListView {
                     id: results; objectName: "searchResults"
@@ -289,7 +312,7 @@ ApplicationWindow {
                             ColumnLayout {
                                 Layout.fillWidth: true; spacing: 6
                                 Label { textFormat: Text.PlainText; text: modelData.name; font.pixelSize: 16; color: window.ink; elide: Text.ElideRight; Layout.fillWidth: true }
-                                Hint { text: "#" + modelData.appId }
+                                Hint { text: "#" + modelData.appId + (modelData.proton ? " • ProtonDB " + modelData.proton.charAt(0).toUpperCase() + modelData.proton.slice(1) : "") }
                             }
                             Label { textFormat: Text.PlainText; text: "→"; font.pixelSize: 22; color: window.muted }
                         }
@@ -379,6 +402,7 @@ ApplicationWindow {
                                         Hint { text: backend.counts.apps + " apps  ·  " + backend.counts.depots + " depots  ·  " + backend.counts.keys + " chaves" }
                                     }
                                 }
+                                Hint { visible: backend.ready; text: "Download na aba Downloads." }
                                 Input { Layout.fillWidth: true; text: backend.gameName; placeholderText: "Nome do jogo nos comentários"; Accessible.name: "Nome do jogo nos comentários YAML"; enabled: !backend.busy && !backend.applied; onTextEdited: backend.gameName = text }
                                 Action { id: details; objectName: "entriesToggle"; text: checked ? "− Ocultar entradas" : "+ Ver entradas"; checkable: true; flat: true; Accessible.name: "Mostrar entradas do pacote" }
                                 ScrollView {
@@ -413,6 +437,112 @@ ApplicationWindow {
                         primary: true
                         enabled: backend.ready && preferences.destinationValid && !backend.busy && !backend.applied
                         onClicked: backend.apply()
+                    }
+                }
+            }
+        }
+
+        Pane {
+            padding: 16; background: Item {}
+            ColumnLayout {
+                anchors.fill: parent; spacing: 12
+                PixelText { text: "Downloads" }
+                Card {
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    ColumnLayout {
+                        width: parent.width; spacing: 12
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 10; enabled: backend.ready
+                            GameCover {
+                                visible: backend.ready && backend.appId.length > 0
+                                appId: backend.appId; title: backend.source; active: tabs.currentIndex === window.tabDownloads
+                                dark: true; accent: window.accent
+                                Layout.preferredWidth: window.width < 820 ? 120 : 180
+                                Layout.preferredHeight: window.width < 820 ? 56 : 84
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true; spacing: 6
+                                Label {
+                                    textFormat: Text.PlainText; color: window.ink; font.pixelSize: 16
+                                    text: backend.ready ? backend.source : "Nenhum pacote pronto"
+                                    elide: Text.ElideRight; Layout.fillWidth: true
+                                }
+                                Hint { text: backend.ready ? "#" + backend.appId + (backend.proton.length > 0 ? " • ProtonDB " + backend.proton.charAt(0).toUpperCase() + backend.proton.slice(1) : "") : "Importe um pacote na aba Importar ou abra um ZIP." }
+                            }
+                        }
+                        ScrollView {
+                            visible: backend.depotDetails.length > 0; Layout.fillWidth: true; Layout.preferredHeight: backend.depotDetails.length > 0 ? 280 : 0
+                            ListView {
+                                id: depotView; model: backend.depotDetails; clip: true; spacing: 4; width: parent.width
+                                delegate: RowLayout {
+                                    width: depotView.width
+                                    property string depot: modelData.depot
+                                    property bool selected: sel.checked
+                                    Tick { id: sel; checked: true; text: modelData.name && modelData.name.length > 0 ? modelData.name + " (" + modelData.depot + ")" : modelData.depot; Accessible.name: "Baixar depot " + modelData.depot }
+                                    Item { Layout.preferredWidth: 8 }
+                                    Label {
+                                        textFormat: Text.PlainText
+                                        text: modelData.oslist && modelData.oslist.length > 0 ? modelData.oslist.map(window.formatOS).join(", ") : "—"
+                                        color: window.muted; font.pixelSize: 11; Layout.fillWidth: true; elide: Text.ElideRight
+                                    }
+                                }
+                            }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 10
+                            Label { textFormat: Text.PlainText; text: "Sistema"; color: window.ink; font.pixelSize: 13 }
+                            ChoiceBox {
+
+                                id: osBox; Layout.preferredWidth: 160
+                                model: backend.platforms.length > 0 ? backend.platforms.map(window.formatOS) : ["Linux", "Windows", "macOS"]
+                                currentIndex: window.downloadOSIndex()
+                                onActivated: {
+                                    const values = backend.platforms.length > 0 ? backend.platforms : ["linux", "windows", "mac"]
+                                    preferences.setDownloadOS(values[currentIndex])
+                                }
+                                Accessible.name: "Sistema do download"
+                            }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 10
+                            Label { textFormat: Text.PlainText; text: "Biblioteca"; color: window.ink; font.pixelSize: 13 }
+                            Label {
+                                textFormat: Text.PlainText
+                                text: preferences.downloadLibrary || (preferences.libraries.length > 0 ? preferences.libraries[0].path : "Nenhuma biblioteca Steam detectada")
+                                color: window.muted; font.pixelSize: 12; elide: Text.ElideLeft; Layout.fillWidth: true
+                            }
+                            Action { text: "Escolher…"; flat: true; enabled: !backend.busy; onClicked: libraryDialog.open() }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 10
+                            Action {
+                                objectName: "downloadButton"
+                                text: backend.downloading ? "Baixando… " + backend.downloadPercent + "%" : "Baixar jogo"
+                                primary: true
+                                enabled: backend.ready && !backend.downloading && !backend.busy
+                                onClicked: {
+                                    var selected = []
+                                    for (var i = 0; i < depotView.count; i++) {
+                                        var it = depotView.itemAt(i)
+                                        if (it && it.selected)
+                                            selected.push(it.depot)
+                                    }
+                                    backend.downloadGame(selected)
+                                }
+                            }
+                            Action { text: "Cancelar"; flat: true; visible: backend.downloading; onClicked: backend.cancelDownload() }
+                            Hint { visible: backend.downloadStatus.length > 0; text: backend.downloadStatus; horizontalAlignment: Text.AlignRight }
+                        }
+                        ProgressBar {
+                            visible: backend.downloading; Layout.fillWidth: true
+                            from: 0; to: 100; value: backend.downloadPercent
+                        }
+                        Label {
+                            visible: backend.eosWarning
+                            textFormat: Text.PlainText
+                            text: "Atenção: jogo usa Epic Online Services (EOSSDK). Pode precisar do proxy EOS do ACCELA/ASSella."
+                            color: "#e5c07b"; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true
+                        }
                     }
                 }
             }
@@ -516,6 +646,16 @@ ApplicationWindow {
                                 placeholderText: "Cole sua chave"; enabled: !backend.busy; Accessible.name: "Chave Hubcap"
                             }
                             Action { id: reveal; text: checked ? "Ocultar" : "Mostrar"; checkable: true; Accessible.name: "Mostrar chave Hubcap" }
+                            Action {
+                                text: "Apagar"; enabled: !backend.busy && (apiKey.text.length > 0 || preferences.hasApiKey); Accessible.name: "Apagar chave Hubcap"
+                                onClicked: {
+                                    apiKey.text = ""
+                                    remember.checked = false
+                                    preferences.savePreferences("", false, preferences.theme)
+                                    savedLabel.text = "Chave apagada."
+                                    apiKey.forceActiveFocus()
+                                }
+                            }
                         }
                         Tick { id: remember; text: "Lembrar neste computador"; checked: preferences.rememberKey; enabled: !backend.busy; Accessible.name: "Lembrar chave Hubcap neste computador" }
                         Hint { visible: remember.checked; text: "Salvo localmente, sem criptografia." }
@@ -654,4 +794,39 @@ ApplicationWindow {
     }
     FileDialog { id: zipDialog; title: "Abrir ZIP"; currentFolder: preferences.importDirectory; nameFilters: ["Pacotes ZIP (*.zip)"]; onAccepted: backend.inspect(selectedFile) }
     FolderDialog { id: destinationDialog; title: "Diretório SLSsteam"; currentFolder: preferences.folderUrl(preferences.destination); onAccepted: preferences.chooseDestination(selectedFolder) }
+    FolderDialog { id: downloadLibraryDialog; title: "Biblioteca Steam para downloads"; currentFolder: preferences.folderUrl(preferences.downloadLibrary || preferences.steamDirectory); onAccepted: preferences.chooseDownloadLibrary(selectedFolder) }
+    Dialog {
+        id: libraryDialog
+        modal: true; anchors.centerIn: parent; width: Math.min(window.width - 48, 440)
+        palette.window: window.surface; palette.windowText: window.ink
+        title: "Biblioteca Steam"
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        contentItem: ColumnLayout {
+            spacing: 6
+            Repeater {
+                model: preferences.libraries
+                ItemDelegate {
+                    required property var modelData
+                    width: parent.width; height: 44
+                    contentItem: ColumnLayout {
+                        spacing: 2
+                        Label { textFormat: Text.PlainText; text: modelData.label; color: window.ink; font.pixelSize: 13 }
+                        Label {
+                            visible: modelData.path !== ""; textFormat: Text.PlainText
+                            text: modelData.path; color: window.muted; font.pixelSize: 11; elide: Text.ElideLeft
+                        }
+                    }
+                    background: Rectangle {
+                        radius: 4
+                        color: modelData.path === preferences.downloadLibrary || (modelData.path === "" && preferences.downloadLibrary === "") ? window.raised : "transparent"
+                    }
+                    onClicked: {
+                        preferences.chooseDownloadLibrary(modelData.path === "" ? "" : preferences.folderUrl(modelData.path))
+                        libraryDialog.close()
+                    }
+                }
+            }
+            Action { text: "Outro diretório…"; flat: true; onClicked: { libraryDialog.close(); downloadLibraryDialog.open() } }
+        }
+    }
 }

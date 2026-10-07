@@ -2,6 +2,7 @@
 #include "package.h"
 #include "settings.h"
 #include <QObject>
+#include <QProcess>
 #include <QUrl>
 #include <QVariantList>
 #include <QVariantMap>
@@ -12,6 +13,7 @@ class Backend : public QObject {
     Q_PROPERTY(QVariantMap hubcapInfo READ hubcapInfo NOTIFY changed)
     Q_PROPERTY(bool checkingHubcap READ checkingHubcap NOTIFY changed)
     Q_PROPERTY(QVariantList games READ games NOTIFY changed)
+    Q_PROPERTY(QString networkIssue READ networkIssue NOTIFY changed)
     Q_PROPERTY(bool hasMore READ hasMore NOTIFY changed)
     Q_PROPERTY(int searchOffset READ searchOffset NOTIFY changed)
     Q_PROPERTY(QString preview READ preview NOTIFY changed)
@@ -25,6 +27,14 @@ class Backend : public QObject {
     Q_PROPERTY(bool applied READ applied NOTIFY changed)
     Q_PROPERTY(bool ready READ ready NOTIFY changed)
     Q_PROPERTY(bool busy READ busy NOTIFY changed)
+    Q_PROPERTY(bool downloading READ downloading NOTIFY changed)
+    Q_PROPERTY(int downloadPercent READ downloadPercent NOTIFY changed)
+    Q_PROPERTY(QString downloadStatus READ downloadStatus NOTIFY changed)
+    Q_PROPERTY(QString downloadDir READ downloadDir NOTIFY changed)
+    Q_PROPERTY(bool eosWarning READ eosWarning NOTIFY changed)
+    Q_PROPERTY(QStringList platforms READ platforms NOTIFY changed)
+    Q_PROPERTY(QString proton READ proton NOTIFY changed)
+    Q_PROPERTY(QVariantList depotDetails READ depotDetails NOTIFY changed)
 public:
     explicit Backend(AppSettings* settings,
                      QObject* parent = nullptr,
@@ -67,7 +77,16 @@ public:
     bool applied() const { return m_applied; }
     bool ready() const { return m_ready; }
     bool busy() const { return m_busy; }
+    bool downloading() const { return m_downloading; }
+    int downloadPercent() const { return m_downloadPercent; }
+    QString downloadStatus() const { return m_downloadStatus; }
+    QString downloadDir() const { return m_downloadDir; }
+    bool eosWarning() const { return m_eosWarning; }
+    QStringList platforms() const { return m_platforms; }
+    QString proton() const { return m_proton; }
+    QVariantList depotDetails() const { return m_depotDetails; }
     QVariantList games() const { return m_games; }
+    QString networkIssue() const { return m_networkIssue; }
     bool hasMore() const { return m_hasMore; }
     int searchOffset() const { return m_searchOffset; }
     Q_INVOKABLE void search(QString query, int offset = 0);
@@ -75,6 +94,8 @@ public:
     Q_INVOKABLE void inspect(QUrl file);
     Q_INVOKABLE void apply();
     Q_INVOKABLE void restore(int historyIndex);
+    Q_INVOKABLE void downloadGame(QVariantList selectedDepots = QVariantList());
+    Q_INVOKABLE void cancelDownload();
     Q_INVOKABLE void openFolder(QString path);
 signals:
     void changed();
@@ -86,8 +107,10 @@ private:
     void finish(QString status, QString kind = "info");
     void acceptPackage(const Package& package, const QString& error);
     void refreshHubcapOnAuthError(const QString& error);
+    void runNextDepot(const QString& dotnet, const QString& dll, const QString& appId);
     AppSettings* m_settings;
     QVariantList m_games;
+    QString m_networkIssue;
     bool m_hasMore = false;
     int m_searchOffset = 0;
     QVariantList m_installed;
@@ -98,4 +121,16 @@ private:
     Package m_package;
     QString m_preview, m_source, m_appId, m_status = "Ready.", m_kind = "info", m_activity;
     bool m_ready = false, m_busy = false, m_applied = false;
+    bool m_downloading = false;
+    bool m_eosWarning = false;
+    QStringList m_platforms;
+    QString m_proton;
+    QVariantList m_depotDetails;
+    int m_downloadPercent = 0;
+    int m_downloadToken = 0;
+    QString m_downloadStatus, m_downloadDir;
+    QProcess* m_downloadProcess = nullptr;
+    QList<QPair<QString, QString>> m_downloadQueue;
+    int m_downloadIndex = 0;
+    QString m_keysFile, m_manifestsDir;
 };

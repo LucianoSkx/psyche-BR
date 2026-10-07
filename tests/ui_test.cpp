@@ -73,7 +73,7 @@ int main(int argc, char** argv) {
         settings.savePreferences("", false, theme);
         for (int width : {1000, 620}) {
             window->resize(width, width == 620 ? 580 : 800);
-            for (int tab = 0; tab < 5; ++tab) {
+            for (int tab = 0; tab < 6; ++tab) {
                 tabs->setProperty("currentIndex", tab);
                 waitFrame();
                 if (tab == 1) {
@@ -132,14 +132,14 @@ int main(int argc, char** argv) {
     waitFrame();
     if (argc > 2)
         window->grabWindow().save(QString(argv[2]) + "/import-applied.png");
-    tabs->setProperty("currentIndex", 3);
+    tabs->setProperty("currentIndex", 4);
     waitFrame();
     auto history = window->findChild<QObject*>("historyList");
     if (!history || history->property("count").toInt() != 1)
         return 1;
     if (argc > 2)
         window->grabWindow().save(QString(argv[2]) + "/history.png");
-    tabs->setProperty("currentIndex", 2);
+    tabs->setProperty("currentIndex", 3);
     waitFrame();
     if (backend.installed().size() != 1)
         return 1;

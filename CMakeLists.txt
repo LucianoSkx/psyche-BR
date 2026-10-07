@@ -17,6 +17,10 @@ add_library(psyche_core
     src/library.cpp
     src/package.cpp
     src/catalog.cpp
+    src/ranking.cpp
+    src/ranking.h
+    src/proton.cpp
+    src/proton.h
     src/settings.cpp
     src/settings.h
 )
@@ -79,6 +83,10 @@ if(BUILD_TESTING)
     target_link_libraries(artwork_test PRIVATE psyche_core psyche_artwork)
     add_test(NAME artwork_local_http COMMAND artwork_test)
 
+    add_executable(ranking_test tests/ranking_test.cpp)
+    target_link_libraries(ranking_test PRIVATE psyche_core Qt6::Core)
+    add_test(NAME search_ranking COMMAND ranking_test)
+
     add_executable(settings_test tests/settings_test.cpp)
     target_link_libraries(settings_test PRIVATE psyche_core)
     add_test(NAME settings_persistence COMMAND settings_test)
@@ -93,7 +101,7 @@ if(BUILD_TESTING)
     )
     add_test(NAME ui_offscreen COMMAND ui_test ${CMAKE_CURRENT_SOURCE_DIR}/qml/Main.qml)
     set_tests_properties(ui_offscreen PROPERTIES
-        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software"
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;PSYCHE_OFFLINE=1"
         TIMEOUT 20
     )
     set_tests_properties(

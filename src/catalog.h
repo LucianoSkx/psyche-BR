@@ -1,5 +1,6 @@
 #pragma once
 #include "package.h"
+#include <QMap>
 #include <QUrl>
 #include <QUrlQuery>
 #include <QVariantList>
@@ -16,6 +17,12 @@ public:
     QVariantMap stats() const;
     SearchPage search(const QString& query, int offset = 0) const;
     Package fetch(const QString& appId, const QString& content = "full") const;
+    // Plataformas com pelo menos um depot ("linux", "windows", "mac") declarado.
+    QStringList supportedPlatforms(const QString& appId) const;
+    // Um registro por depot: {"depot": id, "oslist": ["linux",...]}. Vazio em erro.
+    QList<QVariantMap> depotDetails(const QString& appId) const;
+    // Baixa o ZIP de manifestos da Hubcap, extrai os .manifest para destDir e retorna depotId -> manifestId.
+    QMap<QString, QString> fetchManifests(const QString& appId, const QString& destDir) const;
     static bool resolveGameName(Package& package,
                                 QUrl base = QUrl("https://store.steampowered.com/api"));
     // Promote keyed IDs that steamcmd info says are apps. Fail closed: errors leave them as depots.

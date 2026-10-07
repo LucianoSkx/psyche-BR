@@ -371,6 +371,31 @@ bool AppSettings::chooseSteam(QUrl directory) {
     detectPaths();
     return persist();
 }
+bool AppSettings::chooseDownloadLibrary(QUrl directory) {
+    if (directory.isEmpty()) {
+        m_values.remove("downloadLibrary");
+        m_dirty.insert("downloadLibrary");
+        emit changed();
+        return persist();
+    }
+    if (!directory.isLocalFile())
+        return reportError("Escolha um diretório local.");
+    auto path = directory.toLocalFile();
+    if (path.trimmed().isEmpty()) {
+        m_values.remove("downloadLibrary");
+        m_dirty.insert("downloadLibrary");
+        emit changed();
+        return persist();
+    }
+    QDir().mkpath(path);
+    path = existingDirectory(path);
+    if (path.isEmpty())
+        return reportError("Não foi possível criar a biblioteca.");
+    m_values["downloadLibrary"] = path;
+    m_dirty.insert("downloadLibrary");
+    emit changed();
+    return persist();
+}
 bool AppSettings::useAutomaticPaths() {
     m_values.remove("destination");
     m_values.remove("steamDirectory");
@@ -387,6 +412,17 @@ bool AppSettings::setDownloadContent(QString content) {
         return reportError("Tipo de conteúdo inválido.");
     m_values["downloadContent"] = content;
     m_dirty.insert("downloadContent");
+    return persist();
+}
+QString AppSettings::downloadOS() const {
+    const auto value = m_values.value("downloadOS").toString("linux");
+    return QStringList{"linux", "windows", "mac"}.contains(value) ? value : QString("linux");
+}
+bool AppSettings::setDownloadOS(QString os) {
+    if (!QStringList{"linux", "windows", "mac"}.contains(os))
+        return reportError("Sistema inválido.");
+    m_values["downloadOS"] = os;
+    m_dirty.insert("downloadOS");
     return persist();
 }
 bool AppSettings::savePreferences(QString key, bool remember, QString theme) {
@@ -406,7 +442,7 @@ bool AppSettings::savePreferences(QString key, bool remember, QString theme) {
 void AppSettings::saveNavigation(int tab, QString query) {
     if (lastTab() == tab && lastQuery() == query)
         return;
-    m_values["lastTab"] = qBound(0, tab, 4);
+    m_values["lastTab"] = qBound(0, tab, 5);
     m_values["lastQuery"] = query;
     m_dirty.unite({"lastTab", "lastQuery"});
     persist();

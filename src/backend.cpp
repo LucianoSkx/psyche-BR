@@ -1,9 +1,17 @@
 #include "backend.h"
 #include "catalog.h"
 #include "library.h"
+#include "proton.h"
+#include <QCoreApplication>
 #include <QDesktopServices>
+#include <QDir>
+#include <QDirIterator>
+#include <QFile>
 #include <QFileInfo>
 #include <QFutureWatcher>
+#include <QProcess>
+#include <QRegularExpression>
+#include <QStandardPaths>
 #include <QStringList>
 #include <QtConcurrent>
 void Backend::begin(QString activity, QString status) {
@@ -36,6 +44,38 @@ void Backend::acceptPackage(const Package& package, const QString& error) {
         m_source = gameName();
     finish("Pronto para adicionar.", "success");
     emit packageLoaded();
+    m_platforms.clear();
+    m_proton.clear();
+    m_depotDetails.clear();
+    if (qEnvironmentVariableIsSet("PSYCHE_OFFLINE"))
+        return;
+    const auto pid = m_appId;
+    const auto dataDir2 = m_settings->dataDirectory();
+    auto w2 = new QFutureWatcher<QVariantMap>(this);
+    connect(w2, &QFutureWatcherBase::finished, this, [this, w2, pid] {
+        const auto tiers = w2->result();
+        w2->deleteLater();
+        m_proton = tiers.value(pid).toString();
+        emit changed();
+    });
+    w2->setFuture(QtConcurrent::run([pid, dataDir2] { return Proton::tiers({pid}, dataDir2); }));
+    auto w3 = new QFutureWatcher<QVariantList>(this);
+    connect(w3, &QFutureWatcherBase::finished, this, [this, w3] {
+        m_depotDetails = w3->result();
+        w3->deleteLater();
+        QSet<QString> platforms;
+        for (const auto& entry : m_depotDetails)
+            for (const auto& os : entry.toMap().value("oslist").toList())
+                platforms.insert(os.toString());
+        m_platforms = platforms.values();
+        emit changed();
+    });
+    w3->setFuture(QtConcurrent::run([pid] {
+        QVariantList mapped;
+        for (const auto& entry : Catalog(QString()).depotDetails(pid))
+            mapped.append(entry);
+        return mapped;
+    }));
 }
 void Backend::inspect(QUrl file) {
     if (m_busy)
@@ -108,6 +148,237 @@ void Backend::apply() {
         }
     }));
 }
+void Backend::cancelDownload() {
+    ++m_downloadToken;
+    if (m_downloadProcess) {
+        m_downloadProcess->kill();
+        m_downloadProcess->deleteLater();
+        m_downloadProcess = nullptr;
+    }
+    if (m_downloading) {
+        m_downloading = false;
+        m_downloadStatus = "Download cancelado.";
+        m_downloadPercent = 0;
+        emit changed();
+    }
+}
+
+void Backend::downloadGame(QVariantList selectedDepots) {
+    if (m_busy || m_downloading || !m_ready || m_package.keys.isEmpty()) {
+        if (m_ready && m_package.keys.isEmpty()) {
+            m_downloadStatus = "Este pacote não tem chaves de depot.";
+            emit changed();
+        }
+        return;
+    }
+    const auto appId = m_package.mainAppId.isEmpty() ? m_appId : m_package.mainAppId;
+    if (appId.isEmpty()) {
+        m_downloadStatus = "AppID desconhecido para este pacote.";
+        emit changed();
+        return;
+    }
+    const auto dataDir = m_settings->dataDirectory();
+    const auto name = (gameName().isEmpty() ? "AppID " + appId : gameName()).replace('/', '-');
+    auto library = m_settings->downloadLibrary();
+    if (library.isEmpty()) {
+        const auto libs = m_settings->libraries();
+        if (!libs.isEmpty())
+            library = libs.first().toMap().value("path").toString();
+    }
+    if (!library.isEmpty()) {
+        QDir().mkpath(library + "/steamapps/common");
+        m_downloadDir = library + "/steamapps/common/" + name;
+    } else {
+        m_downloadDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/psyche/" + name;
+    }
+    m_downloading = true;
+    ++m_downloadToken;
+    const int token = m_downloadToken;
+    m_eosWarning = false;
+    m_downloadPercent = 0;
+    m_downloadStatus = "Procurando manifestos em cache…";
+    emit changed();
+    const auto apiKey = m_settings->effectiveApiKey();
+    const auto manifestsDir = dataDir + "/manifests/" + appId;
+    auto proceed = [this, appId, dataDir, manifestsDir, token, selectedDepots](const QMap<QString, QString>& manifests) {
+        if (token != m_downloadToken)
+            return;
+        m_keysFile = dataDir + "/depot-keys-" + appId + ".vdf";
+        QFile keysFile(m_keysFile);
+        if (!keysFile.open(QIODevice::WriteOnly)) {
+            m_downloading = false;
+            m_downloadStatus = "Não foi possível gravar o arquivo de chaves.";
+            emit changed();
+            return;
+        }
+        m_downloadQueue.clear();
+        QSet<QString> wanted;
+        for (const auto& depot : selectedDepots)
+            wanted.insert(depot.toString());
+        for (auto it = m_package.keys.constBegin(); it != m_package.keys.constEnd(); ++it) {
+            if (!wanted.isEmpty() && !wanted.contains(it.key()))
+                continue;
+            keysFile.write((it.key() + ";" + it.value() + "\n").toUtf8());
+            const auto manifest = manifests.value(it.key());
+            if (!manifest.isEmpty())
+                m_downloadQueue.append({it.key(), manifest});
+        }
+        keysFile.close();
+        if (m_downloadQueue.isEmpty()) {
+            m_downloading = false;
+            m_downloadStatus = "Nenhum manifesto compatível com as chaves do pacote.";
+            emit changed();
+            return;
+        }
+        QString dotnet = qEnvironmentVariable("PSYCHE_DOTNET");
+        QStringList candidates;
+        candidates << dotnet << QDir::homePath() + "/.dotnet/dotnet"
+                   << "/usr/share/dotnet/dotnet" << "/usr/lib/dotnet/dotnet";
+        const auto pathEnv = QProcessEnvironment::systemEnvironment().value("PATH").split(':');
+        for (const auto& dir : pathEnv)
+            candidates << dir + "/dotnet";
+        dotnet.clear();
+        for (const auto& candidate : candidates)
+            if (!candidate.isEmpty() && QFileInfo(candidate).isExecutable()) {
+                dotnet = candidate;
+                break;
+            }
+        QStringList ddCandidates;
+        ddCandidates << qEnvironmentVariable("PSYCHE_DEPOTDOWNLOADER")
+                     << dataDir + "/runtime/depotdownloader/DepotDownloader.dll"
+                     << dataDir + "/depotdownloader/DepotDownloader.dll"
+                     << QCoreApplication::applicationDirPath() + "/../depotdownloader/DepotDownloader.dll";
+        QString dll;
+        for (const auto& candidate : ddCandidates)
+            if (!candidate.isEmpty() && QFileInfo::exists(candidate)) {
+                dll = QFileInfo(candidate).canonicalFilePath();
+                break;
+            }
+        if (dotnet.isEmpty() || dll.isEmpty()) {
+            m_downloading = false;
+            m_downloadStatus = dotnet.isEmpty()
+                ? "Runtime .NET 9 não encontrado. Instale com o script dotnet-install."
+                : "DepotDownloader não encontrado junto ao psyche.";
+            emit changed();
+            return;
+        }
+        m_manifestsDir = manifestsDir;
+        m_downloadIndex = 0;
+        m_downloadStatus = "Baixando jogos e conteúdos…";
+        emit changed();
+        runNextDepot(dotnet, dll, appId);
+    };
+    QMap<QString, QString> cached;
+    QSet<QString> wantedCache;
+    for (const auto& depot : selectedDepots)
+        wantedCache.insert(depot.toString());
+    for (auto it = m_package.keys.constBegin(); it != m_package.keys.constEnd(); ++it) {
+        if (!wantedCache.isEmpty() && !wantedCache.contains(it.key()))
+            continue;
+        const auto files =
+            QDir(manifestsDir).entryList({it.key() + "_*.manifest"}, QDir::Files);
+        if (files.isEmpty())
+            continue;
+        const auto match = QRegularExpression("^(\\d+)_(\\d+)\\.manifest$").match(files.first());
+        if (match.hasMatch())
+            cached[it.key()] = match.captured(2);
+    }
+    const int wantedCount = selectedDepots.isEmpty() ? m_package.keys.size() : selectedDepots.size();
+    if (cached.size() == wantedCount) {
+        m_downloadStatus = "Usando manifestos em cache…";
+        proceed(cached);
+        return;
+    }
+    m_downloadStatus = "Baixando manifestos da Hubcap…";
+    emit changed();
+    auto watcher = new QFutureWatcher<QPair<QMap<QString, QString>, QString>>(this);
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, proceed] {
+        auto result = watcher->result();
+        watcher->deleteLater();
+        if (!result.second.isEmpty()) {
+            m_downloading = false;
+            m_downloadStatus = "Falha ao obter manifestos: " + result.second;
+            emit changed();
+            return;
+        }
+        proceed(result.first);
+    });
+    const auto apiK = m_settings->effectiveApiKey();
+    watcher->setFuture(QtConcurrent::run([apiK, appId, manifestsDir] {
+        try {
+            return qMakePair(Catalog(apiK).fetchManifests(appId, manifestsDir), QString());
+        } catch (const std::exception& e) {
+            return qMakePair(QMap<QString, QString>{}, QString::fromUtf8(e.what()));
+        }
+    }));
+}
+
+void Backend::runNextDepot(const QString& dotnet, const QString& dll, const QString& appId) {
+    if (m_downloadIndex >= m_downloadQueue.size()) {
+        m_downloading = false;
+        m_downloadStatus = "Download concluído.";
+        m_downloadPercent = 100;
+        QDirIterator it(m_downloadDir, {"EOSSDK*.dll"}, QDir::Files, QDirIterator::Subdirectories);
+        while (it.hasNext()) {
+            if (it.next().toLower().contains("eossdk-win64-shipping")) {
+                m_eosWarning = true;
+                break;
+            }
+        }
+        emit changed();
+        return;
+    }
+    const auto entry = m_downloadQueue[m_downloadIndex];
+    const auto manifestFile = m_manifestsDir + "/" + entry.first + "_" + entry.second + ".manifest";
+    auto process = new QProcess(this);
+    m_downloadProcess = process;
+    QStringList args;
+    const auto osArg = m_settings->downloadOS() == "mac" ? "osx" : m_settings->downloadOS();
+    args << dll << "-app" << appId << "-depot" << entry.first << "-manifest" << entry.second
+         << "-manifestfile" << manifestFile << "-depotkeys" << m_keysFile << "-max-downloads" << "4"
+         << "-dir" << m_downloadDir << "-validate" << "-os" << osArg;
+    connect(process, &QProcess::readyReadStandardOutput, this, [this, process] {
+        const auto data = process->readAllStandardOutput();
+        QRegularExpression re("(\\d{1,3}(?:\\.\\d+)?)%");
+        auto it = re.globalMatch(QString::fromUtf8(data));
+        double percent = -1;
+        while (it.hasNext())
+            percent = it.next().captured(1).toDouble();
+        if (percent >= 0 && m_downloadIndex < m_downloadQueue.size()) {
+            const double overall = (m_downloadIndex + percent / 100.0) / m_downloadQueue.size();
+            m_downloadPercent = static_cast<int>(overall * 100);
+            m_downloadStatus = QString("Baixando %1… %2% total")
+                                   .arg(m_downloadQueue[m_downloadIndex].first)
+                                   .arg(m_downloadPercent);
+            emit changed();
+        }
+    });
+    connect(process, &QProcess::readyReadStandardError, this, [this, process] {
+        const auto data = process->readAllStandardError();
+        m_downloadStatus += data.isEmpty() ? QString() : " " + QString::fromUtf8(data).trimmed().left(80);
+        emit changed();
+    });
+    connect(process,
+            qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
+            this,
+            [this, dotnet, dll, appId, process](int code, QProcess::ExitStatus) {
+        if (m_downloadProcess == process)
+            m_downloadProcess = nullptr;
+        process->deleteLater();
+        if (!m_downloading)
+            return; // cancelado: não encadeia nem sobrescreve o status
+        if (code != 0) {
+            m_downloading = false;
+            m_downloadStatus = QString("DepotDownloader saiu com código %1.").arg(code);
+            emit changed();
+            return;
+        }
+        ++m_downloadIndex;
+        runNextDepot(dotnet, dll, appId);
+    });
+    process->start(dotnet, args);
+}
+
 void Backend::restore(int historyIndex) {
     if (m_busy)
         return;
@@ -157,13 +428,37 @@ void Backend::search(QString query, int offset) {
         auto result = watcher->result();
         watcher->deleteLater();
         if (!result.second.isEmpty()) {
+            if (result.second.contains("conexão") || result.second.contains("expirou") ||
+                result.second.contains("Route") || result.second.contains("Network"))
+                m_networkIssue = "Sem conexão com a Hubcap. Verifique sua internet.";
             finish(result.second, "error");
             refreshHubcapOnAuthError(result.second);
             return;
         }
         m_games = result.first.games;
         m_hasMore = result.first.hasMore;
+        m_networkIssue.clear();
         finish(m_games.isEmpty() ? "Nenhum jogo encontrado." : "Escolha um jogo.");
+        auto games = m_games;
+        auto dataDir = m_settings->dataDirectory();
+        auto ratings = new QFutureWatcher<QVariantMap>(this);
+        connect(ratings, &QFutureWatcherBase::finished, this, [this, ratings] {
+            auto tiers = ratings->result();
+            ratings->deleteLater();
+            for (auto& game : m_games) {
+                auto map = game.toMap();
+                auto tier = tiers.value(map.value("appId").toString()).toString();
+                if (!tier.isEmpty()) {
+                    map["proton"] = tier;
+                    game = map;
+                }
+            }
+            emit changed();
+        });
+        QStringList ids;
+        for (const auto& game : games)
+            ids.append(game.toMap().value("appId").toString());
+        ratings->setFuture(QtConcurrent::run([ids, dataDir] { return Proton::tiers(ids, dataDir); }));
     });
     watcher->setFuture(QtConcurrent::run([query, apiKey, offset] {
         try {
