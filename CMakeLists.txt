@@ -17,6 +17,8 @@ add_library(psyche_core
     src/library.cpp
     src/package.cpp
     src/catalog.cpp
+    src/workshopacf.cpp
+    src/workshopacf.h
     src/ranking.cpp
     src/ranking.h
     src/proton.cpp
@@ -94,6 +96,10 @@ if(BUILD_TESTING)
     add_executable(workshop_test tests/workshop_test.cpp)
     target_link_libraries(workshop_test PRIVATE psyche_core Qt6::Core)
     add_test(NAME workshop_ids COMMAND workshop_test)
+
+    add_executable(workshop_acf_test tests/workshop_acf_test.cpp)
+    target_link_libraries(workshop_acf_test PRIVATE psyche_core Qt6::Core)
+    add_test(NAME workshop_acf COMMAND workshop_acf_test)
 
     add_executable(ui_test tests/ui_test.cpp src/backend.cpp src/backend.h)
     target_link_libraries(ui_test PRIVATE

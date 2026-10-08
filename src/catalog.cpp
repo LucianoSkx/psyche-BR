@@ -296,7 +296,7 @@ QStringList Catalog::parseWorkshopIds(const QString& text) {
     return ids;
 }
 
-QString Catalog::fetchWorkshopAppId(const QString& workshopId) const {
+QVariantMap Catalog::fetchWorkshopInfo(const QString& workshopId) const {
     if (!QRegularExpression("^[1-9][0-9]{0,19}$").match(workshopId).hasMatch())
         error("ID de Workshop inválido: " + workshopId);
     QMap<QString, QString> headers;
@@ -305,7 +305,7 @@ QString Catalog::fetchWorkshopAppId(const QString& workshopId) const {
     const auto appId = headers.value("x-app-id").trimmed();
     if (appId.isEmpty())
         error("Resposta sem X-App-Id para o item de Workshop " + workshopId + ".");
-    return validateAppId(appId);
+    return {{"appId", validateAppId(appId)}, {"manifestId", headers.value("x-manifest-id").trimmed()}};
 }
 
 QStringList Catalog::supportedPlatforms(const QString& appId) const {

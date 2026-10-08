@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
     check("vazio", "  \n ", {});
     bool threw = false;
     try {
-        Catalog("").fetchWorkshopAppId("0");
+        Catalog("").fetchWorkshopInfo("0");
     } catch (const std::exception&) {
         threw = true;
     }

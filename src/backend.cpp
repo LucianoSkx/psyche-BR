@@ -1,6 +1,7 @@
 #include "backend.h"
 #include "catalog.h"
 #include "library.h"
+#include "workshopacf.h"
 #include "proton.h"
 #include <QCoreApplication>
 #include <QDesktopServices>
@@ -379,7 +380,7 @@ void Backend::runNextWorkshop(const QString& dotnet, const QString& dll) {
     m_workshopStatus = "Buscando manifesto do item " + workshopId + "…";
     emit changed();
     const auto apiKey = m_settings->effectiveApiKey();
-    auto watcher = new QFutureWatcher<QPair<QString, QString>>(this);
+    auto watcher = new QFutureWatcher<QPair<QVariantMap, QString>>(this);
     connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, dotnet, dll, token, workshopId] {
         const auto result = watcher->result();
         watcher->deleteLater();
@@ -396,7 +397,8 @@ void Backend::runNextWorkshop(const QString& dotnet, const QString& dll) {
             runNextWorkshop(dotnet, dll);
             return;
         }
-        const auto appId = result.first;
+        const auto appId = result.first.value("appId").toString();
+        const auto manifestId = result.first.value("manifestId").toString();
         auto library = m_settings->downloadLibrary();
         if (library.isEmpty()) {
             const auto libs = m_settings->libraries();
@@ -442,7 +444,8 @@ void Backend::runNextWorkshop(const QString& dotnet, const QString& dll) {
         connect(process,
                 qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
                 this,
-                [this, dotnet, dll, token, process](int code, QProcess::ExitStatus) {
+                [this, dotnet, dll, token, process, appId, manifestId, workshopId, dir,
+                      library](int code, QProcess::ExitStatus) {
             if (m_workshopProcess == process)
                 m_workshopProcess = nullptr;
             process->deleteLater();
@@ -451,6 +454,15 @@ void Backend::runNextWorkshop(const QString& dotnet, const QString& dll) {
             auto done = m_workshopQueue[m_workshopIndex].toMap();
             if (code == 0) {
                 done["state"] = "ok";
+                // Só dentro de uma biblioteca Steam o ACF faz sentido: sem ela a
+                // Steam nunca vai ler o arquivo.
+                if (!library.isEmpty()) {
+                    const auto error = registerWorkshopItem(
+                        library + "/steamapps/workshop/appworkshop_" + appId + ".acf",
+                        appId, workshopId, manifestId, dir);
+                    if (!error.isEmpty())
+                        done["note"] = error;
+                }
             } else {
                 done["state"] = "erro";
                 done["error"] = QString("DepotDownloader saiu com código %1.").arg(code);
@@ -464,9 +476,9 @@ void Backend::runNextWorkshop(const QString& dotnet, const QString& dll) {
     });
     watcher->setFuture(QtConcurrent::run([apiKey, workshopId] {
         try {
-            return qMakePair(Catalog(apiKey).fetchWorkshopAppId(workshopId), QString());
+            return qMakePair(Catalog(apiKey).fetchWorkshopInfo(workshopId), QString());
         } catch (const std::exception& e) {
-            return qMakePair(QString(), QString::fromUtf8(e.what()));
+            return qMakePair(QVariantMap(), QString::fromUtf8(e.what()));
         }
     }));
 }

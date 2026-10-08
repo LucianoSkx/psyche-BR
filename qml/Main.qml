@@ -599,8 +599,12 @@ ApplicationWindow {
                                     font.pixelSize: 11
                                     Layout.fillWidth: true
                                     elide: Text.ElideRight
-                                    color: modelData.state === "erro" ? "#e06c75" : modelData.state === "ok" ? "#8fbf7f" : window.muted
-                                    text: modelData.state === "erro" ? modelData.error : modelData.state === "ok" ? "Baixado" : "Pendente"
+                                    color: modelData.state === "erro" || modelData.note ? "#e0c07b" : modelData.state === "ok" ? "#8fbf7f" : window.muted
+                                    text: {
+                                        if (modelData.state === "erro") return modelData.error
+                                        if (modelData.note) return "Baixado, mas " + modelData.note
+                                        return modelData.state === "ok" ? "Baixado" : "Pendente"
+                                    }
                                 }
                             }
                         }
