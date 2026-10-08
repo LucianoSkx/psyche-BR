@@ -447,6 +447,8 @@ ApplicationWindow {
             ColumnLayout {
                 anchors.fill: parent; spacing: 12
                 PixelText { text: "Downloads" }
+                RowLayout {
+                    Layout.fillWidth: true; Layout.fillHeight: true; spacing: 12
                 Card {
                     Layout.fillWidth: true; Layout.fillHeight: true
                     ColumnLayout {
@@ -545,7 +547,93 @@ ApplicationWindow {
                         }
                     }
                 }
+                Card {
+                    objectName: "workshopCard"
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    ColumnLayout {
+                        width: parent.width; spacing: 12
+                        Label {
+                            textFormat: Text.PlainText; color: window.ink; font.pixelSize: 16
+                            text: "Workshop"
+                        }
+                        Hint {
+                            text: "Cole URLs ou IDs de mods do Steam Workshop (um por linha ou separados por espaço)."
+                        }
+                        TextArea {
+                            id: workshopInput
+                            objectName: "workshopInput"
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 90
+                            wrapMode: TextEdit.Wrap
+                            selectByMouse: true
+                            font.family: "monospace"; font.pixelSize: 12
+                            color: window.ink
+                            placeholderText: "https://steamcommunity.com/sharedfiles/filedetails/?id=123456789"
+                            background: Rectangle { color: window.canvas; radius: 4; border.color: window.border }
+                            text: backend.workshopInput
+                            onTextEdited: backend.workshopInput = text
+                            enabled: !backend.workshopBusy
+                            Accessible.name: "IDs de mods do Workshop"
+                        }
+                        Hint {
+                            visible: backend.workshopIds.length > 0
+                            text: backend.workshopIds.length + (backend.workshopIds.length === 1 ? " item detectado" : " itens detectados")
+                        }
+                        ListView {
+                            id: workshopView; objectName: "workshopList"
+                            model: backend.workshopQueue
+                            clip: true; spacing: 4
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: Math.min(backend.workshopQueue.length * 28 + 4, 200)
+                            delegate: RowLayout {
+                                width: workshopView.width
+                                Label {
+                                    textFormat: Text.PlainText; color: window.ink; font.pixelSize: 12
+                                    font.family: "monospace"
+                                    text: modelData.id
+                                    Layout.preferredWidth: 130
+                                    elide: Text.ElideMiddle
+                                }
+                                Label {
+                                    textFormat: Text.PlainText
+                                    font.pixelSize: 11
+                                    Layout.fillWidth: true
+                                    elide: Text.ElideRight
+                                    color: modelData.state === "erro" ? "#e06c75" : modelData.state === "ok" ? "#8fbf7f" : window.muted
+                                    text: modelData.state === "erro" ? modelData.error : modelData.state === "ok" ? "Baixado" : "Pendente"
+                                }
+                            }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 10
+                            Action {
+                                objectName: "workshopDownloadButton"
+                                text: backend.workshopBusy ? "Baixando… " + backend.workshopPercent + "%" : "Baixar todos"
+                                primary: true
+                                enabled: backend.workshopIds.length > 0 && !backend.workshopBusy && !backend.busy && !backend.downloading
+                                onClicked: backend.downloadWorkshop()
+                            }
+                            Action { text: "Limpar"; flat: true; enabled: !backend.workshopBusy; onClicked: backend.clearWorkshop() }
+                            Hint {
+                                visible: backend.workshopStatus.length > 0
+                                text: backend.workshopStatus
+                                horizontalAlignment: Text.AlignRight
+                            }
+                        }
+                        ProgressBar {
+                            visible: backend.workshopBusy; Layout.fillWidth: true
+                            from: 0; to: 100; value: backend.workshopPercent
+                        }
+                        Label {
+                            textFormat: Text.PlainText
+                            text: "Os mods vão para steamapps/workshop/content na biblioteca escolhida."
+                            color: window.muted; font.pixelSize: 11; wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                        }
+                    }
+                }
             }
+        }
         }
         Pane {
             padding: 16; background: Item {}

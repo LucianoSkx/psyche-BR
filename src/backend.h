@@ -1,4 +1,5 @@
 #pragma once
+#include "catalog.h"
 #include "package.h"
 #include "settings.h"
 #include <QObject>
@@ -35,6 +36,12 @@ class Backend : public QObject {
     Q_PROPERTY(QStringList platforms READ platforms NOTIFY changed)
     Q_PROPERTY(QString proton READ proton NOTIFY changed)
     Q_PROPERTY(QVariantList depotDetails READ depotDetails NOTIFY changed)
+    Q_PROPERTY(QString workshopInput READ workshopInput WRITE setWorkshopInput NOTIFY changed)
+    Q_PROPERTY(QStringList workshopIds READ workshopIds NOTIFY changed)
+    Q_PROPERTY(bool workshopBusy READ workshopBusy NOTIFY changed)
+    Q_PROPERTY(QString workshopStatus READ workshopStatus NOTIFY changed)
+    Q_PROPERTY(int workshopPercent READ workshopPercent NOTIFY changed)
+    Q_PROPERTY(QVariantList workshopQueue READ workshopQueue NOTIFY changed)
 public:
     explicit Backend(AppSettings* settings,
                      QObject* parent = nullptr,
@@ -85,6 +92,20 @@ public:
     QStringList platforms() const { return m_platforms; }
     QString proton() const { return m_proton; }
     QVariantList depotDetails() const { return m_depotDetails; }
+    QString workshopInput() const { return m_workshopInput; }
+    void setWorkshopInput(const QString& text) {
+        if (text == m_workshopInput)
+            return;
+        m_workshopInput = text;
+        m_workshopIds = Catalog::parseWorkshopIds(text);
+        emit changed();
+    }
+    QStringList workshopIds() const { return m_workshopIds; }
+    bool workshopBusy() const { return m_workshopBusy; }
+    QString workshopStatus() const { return m_workshopStatus; }
+    int workshopPercent() const { return m_workshopPercent; }
+    // Uma entrada por item: {"id", "state": "pendente"|"ok"|"erro", "error"}.
+    QVariantList workshopQueue() const { return m_workshopQueue; }
     QVariantList games() const { return m_games; }
     QString networkIssue() const { return m_networkIssue; }
     bool hasMore() const { return m_hasMore; }
@@ -96,6 +117,14 @@ public:
     Q_INVOKABLE void restore(int historyIndex);
     Q_INVOKABLE void downloadGame(QVariantList selectedDepots = QVariantList());
     Q_INVOKABLE void cancelDownload();
+    Q_INVOKABLE void downloadWorkshop();
+    Q_INVOKABLE void clearWorkshop() {
+        m_workshopInput.clear();
+        m_workshopIds.clear();
+        m_workshopQueue.clear();
+        m_workshopStatus.clear();
+        emit changed();
+    }
     Q_INVOKABLE void openFolder(QString path);
 signals:
     void changed();
@@ -108,6 +137,10 @@ private:
     void acceptPackage(const Package& package, const QString& error);
     void refreshHubcapOnAuthError(const QString& error);
     void runNextDepot(const QString& dotnet, const QString& dll, const QString& appId);
+    // dotnet e DepotDownloader compartilhados por jogo e Workshop.
+    QString resolveDotnet() const;
+    QString resolveDepotDownloader() const;
+    void runNextWorkshop(const QString& dotnet, const QString& dll);
     AppSettings* m_settings;
     QVariantList m_games;
     QString m_networkIssue;
@@ -133,4 +166,11 @@ private:
     QList<QPair<QString, QString>> m_downloadQueue;
     int m_downloadIndex = 0;
     QString m_keysFile, m_manifestsDir;
+    QString m_workshopInput, m_workshopStatus;
+    QStringList m_workshopIds;
+    QVariantList m_workshopQueue;
+    int m_workshopPercent = 0;
+    int m_workshopToken = 0, m_workshopIndex = 0;
+    bool m_workshopBusy = false;
+    QProcess* m_workshopProcess = nullptr;
 };

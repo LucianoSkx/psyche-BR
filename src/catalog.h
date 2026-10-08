@@ -23,6 +23,11 @@ public:
     QList<QVariantMap> depotDetails(const QString& appId) const;
     // Baixa o ZIP de manifestos da Hubcap, extrai os .manifest para destDir e retorna depotId -> manifestId.
     QMap<QString, QString> fetchManifests(const QString& appId, const QString& destDir) const;
+    // AppID dono de um item do Workshop, lido do cabeçalho X-App-Id. Lança em erro.
+    QString fetchWorkshopAppId(const QString& workshopId) const;
+    static QStringList parseWorkshopIds(const QString& text);
+    // AppID/manifesto de um item do Workshop via Hubcap (headers X-App-Id/X-Manifest-Id). Falha: exceção.
+    QVariantMap fetchWorkshopInfo(const QString& workshopId) const;
     static bool resolveGameName(Package& package,
                                 QUrl base = QUrl("https://store.steampowered.com/api"));
     // Promote keyed IDs that steamcmd info says are apps. Fail closed: errors leave them as depots.
@@ -31,11 +36,13 @@ public:
     static QString validateAppId(const QString& value);
 
 private:
+    // headers (chaves em minúsculas) é preenchido quando não-nulo.
     QByteArray get(const QString& endpoint,
                    const QUrlQuery& query,
                    qint64 limit,
                    bool authenticated = true,
-                   int timeout = 60000) const;
+                   int timeout = 60000,
+                   QMap<QString, QString>* headers = nullptr) const;
     QString m_key;
     QUrl m_base;
     QUrl m_appInfo;

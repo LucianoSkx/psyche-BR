@@ -11,6 +11,7 @@
 #include <QNetworkRequest>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include <QSet>
 #include <QTemporaryFile>
 #include <QTimer>
 #include <archive.h>
@@ -45,7 +46,8 @@ QByteArray Catalog::get(const QString& endpoint,
                         const QUrlQuery& query,
                         qint64 limit,
                         bool authenticated,
-                        int timeout) const {
+                        int timeout,
+                        QMap<QString, QString>* headers) const {
     if (authenticated && m_key.isEmpty())
         error("Defina sua chave Hubcap no app ou PSYCHE_HUBCAP_API_KEY.");
     if (authenticated && (m_key.contains('\r') || m_key.contains('\n')))
@@ -107,6 +109,10 @@ QByteArray Catalog::get(const QString& endpoint,
         error("Erro de conexão com a Hubcap: " + reply->errorString());
     if (status != 200)
         error("Resposta inesperada da Hubcap.");
+    if (headers)
+        for (const auto& name : reply->rawHeaderList())
+            headers->insert(QString::fromLatin1(name).toLower(),
+                            QString::fromUtf8(reply->rawHeader(name)));
     return data;
 }
 namespace {
@@ -266,6 +272,38 @@ QMap<QString, QString> Catalog::fetchManifests(const QString& appId, const QStri
     if (manifests.isEmpty())
         error("Nenhum manifesto encontrado no pacote da Hubcap.");
     return manifests;
+}
+
+QStringList Catalog::parseWorkshopIds(const QString& text) {
+    QStringList ids;
+    QSet<QString> seen;
+    const auto tokens = text.split(QRegularExpression("[\\s,;]+"), Qt::SkipEmptyParts);
+    for (const auto& token : tokens) {
+        const auto trimmed = token.trimmed();
+        if (trimmed.isEmpty())
+            continue;
+        auto match = QRegularExpression("[?&]id=([0-9]+)").match(trimmed);
+        if (!match.hasMatch())
+            match = QRegularExpression("^([0-9]+)$").match(trimmed);
+        if (!match.hasMatch())
+            continue;
+        const auto id = match.captured(1);
+        if (!seen.contains(id))
+            seen.insert(id), ids.append(id);
+    }
+    return ids;
+}
+
+QString Catalog::fetchWorkshopAppId(const QString& workshopId) const {
+    if (!QRegularExpression("^[1-9][0-9]{0,19}$").match(workshopId).hasMatch())
+        error("ID de Workshop inválido: " + workshopId);
+    QMap<QString, QString> headers;
+    // O corpo é o .manifest binário; só os cabeçalhos interessam aqui.
+    get("/generate/workshopmanifest/" + workshopId, {}, 1024 * 1024, true, 60000, &headers);
+    const auto appId = headers.value("x-app-id").trimmed();
+    if (appId.isEmpty())
+        error("Resposta sem X-App-Id para o item de Workshop " + workshopId + ".");
+    return validateAppId(appId);
 }
 
 QStringList Catalog::supportedPlatforms(const QString& appId) const {

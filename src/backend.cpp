@@ -161,6 +161,44 @@ void Backend::cancelDownload() {
         m_downloadPercent = 0;
         emit changed();
     }
+    ++m_workshopToken;
+    if (m_workshopProcess) {
+        m_workshopProcess->kill();
+        m_workshopProcess->deleteLater();
+        m_workshopProcess = nullptr;
+    }
+    if (m_workshopBusy) {
+        m_workshopBusy = false;
+        m_workshopStatus = "Download do Workshop cancelado.";
+        m_workshopPercent = 0;
+        emit changed();
+    }
+}
+
+QString Backend::resolveDotnet() const {
+    QStringList candidates;
+    candidates << qEnvironmentVariable("PSYCHE_DOTNET") << QDir::homePath() + "/.dotnet/dotnet"
+               << "/usr/share/dotnet/dotnet" << "/usr/lib/dotnet/dotnet";
+    const auto pathEnv = QProcessEnvironment::systemEnvironment().value("PATH").split(':');
+    for (const auto& dir : pathEnv)
+        candidates << dir + "/dotnet";
+    for (const auto& candidate : candidates)
+        if (!candidate.isEmpty() && QFileInfo(candidate).isExecutable())
+            return candidate;
+    return {};
+}
+
+QString Backend::resolveDepotDownloader() const {
+    const auto dataDir = m_settings->dataDirectory();
+    QStringList candidates;
+    candidates << qEnvironmentVariable("PSYCHE_DEPOTDOWNLOADER")
+               << dataDir + "/runtime/depotdownloader/DepotDownloader.dll"
+               << dataDir + "/depotdownloader/DepotDownloader.dll"
+               << QCoreApplication::applicationDirPath() + "/../depotdownloader/DepotDownloader.dll";
+    for (const auto& candidate : candidates)
+        if (!candidate.isEmpty() && QFileInfo::exists(candidate))
+            return QFileInfo(candidate).canonicalFilePath();
+    return {};
 }
 
 void Backend::downloadGame(QVariantList selectedDepots) {
@@ -230,30 +268,8 @@ void Backend::downloadGame(QVariantList selectedDepots) {
             emit changed();
             return;
         }
-        QString dotnet = qEnvironmentVariable("PSYCHE_DOTNET");
-        QStringList candidates;
-        candidates << dotnet << QDir::homePath() + "/.dotnet/dotnet"
-                   << "/usr/share/dotnet/dotnet" << "/usr/lib/dotnet/dotnet";
-        const auto pathEnv = QProcessEnvironment::systemEnvironment().value("PATH").split(':');
-        for (const auto& dir : pathEnv)
-            candidates << dir + "/dotnet";
-        dotnet.clear();
-        for (const auto& candidate : candidates)
-            if (!candidate.isEmpty() && QFileInfo(candidate).isExecutable()) {
-                dotnet = candidate;
-                break;
-            }
-        QStringList ddCandidates;
-        ddCandidates << qEnvironmentVariable("PSYCHE_DEPOTDOWNLOADER")
-                     << dataDir + "/runtime/depotdownloader/DepotDownloader.dll"
-                     << dataDir + "/depotdownloader/DepotDownloader.dll"
-                     << QCoreApplication::applicationDirPath() + "/../depotdownloader/DepotDownloader.dll";
-        QString dll;
-        for (const auto& candidate : ddCandidates)
-            if (!candidate.isEmpty() && QFileInfo::exists(candidate)) {
-                dll = QFileInfo(candidate).canonicalFilePath();
-                break;
-            }
+        const auto dotnet = resolveDotnet();
+        const auto dll = resolveDepotDownloader();
         if (dotnet.isEmpty() || dll.isEmpty()) {
             m_downloading = false;
             m_downloadStatus = dotnet.isEmpty()
@@ -309,6 +325,146 @@ void Backend::downloadGame(QVariantList selectedDepots) {
             return qMakePair(Catalog(apiK).fetchManifests(appId, manifestsDir), QString());
         } catch (const std::exception& e) {
             return qMakePair(QMap<QString, QString>{}, QString::fromUtf8(e.what()));
+        }
+    }));
+}
+
+void Backend::downloadWorkshop() {
+    if (m_busy || m_downloading || m_workshopBusy)
+        return;
+    if (m_workshopIds.isEmpty()) {
+        m_workshopStatus = "Cole IDs ou URLs do Workshop para baixar.";
+        emit changed();
+        return;
+    }
+    const auto dotnet = resolveDotnet();
+    const auto dll = resolveDepotDownloader();
+    if (dotnet.isEmpty()) {
+        m_workshopStatus = "Runtime .NET 9 não encontrado. Instale com o script dotnet-install.";
+        emit changed();
+        return;
+    }
+    if (dll.isEmpty()) {
+        m_workshopStatus = "DepotDownloader não encontrado junto ao psyche.";
+        emit changed();
+        return;
+    }
+    if (m_settings->effectiveApiKey().isEmpty()) {
+        m_workshopStatus = "Defina sua chave Hubcap para obter os manifestos do Workshop.";
+        emit changed();
+        return;
+    }
+    m_workshopQueue.clear();
+    for (const auto& id : m_workshopIds)
+        m_workshopQueue.append(QVariantMap{{"id", id}, {"state", "pendente"}, {"error", QString()}});
+    m_workshopBusy = true;
+    ++m_workshopToken;
+    m_workshopIndex = 0;
+    m_workshopPercent = 0;
+    m_workshopStatus = "Preparando downloads do Workshop…";
+    emit changed();
+    runNextWorkshop(dotnet, dll);
+}
+
+void Backend::runNextWorkshop(const QString& dotnet, const QString& dll) {
+    if (m_workshopIndex >= m_workshopQueue.size()) {
+        m_workshopBusy = false;
+        m_workshopPercent = 100;
+        m_workshopStatus = "Downloads do Workshop concluídos.";
+        emit changed();
+        return;
+    }
+    const auto token = m_workshopToken;
+    const auto workshopId = m_workshopQueue[m_workshopIndex].toMap().value("id").toString();
+    m_workshopStatus = "Buscando manifesto do item " + workshopId + "…";
+    emit changed();
+    const auto apiKey = m_settings->effectiveApiKey();
+    auto watcher = new QFutureWatcher<QPair<QString, QString>>(this);
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, dotnet, dll, token, workshopId] {
+        const auto result = watcher->result();
+        watcher->deleteLater();
+        if (token != m_workshopToken)
+            return; // cancelado
+        if (!result.second.isEmpty()) {
+            auto failed = m_workshopQueue[m_workshopIndex].toMap();
+            failed["state"] = "erro";
+            failed["error"] = result.second;
+            m_workshopQueue[m_workshopIndex] = failed;
+            m_workshopStatus = "Item " + workshopId + ": " + result.second;
+            ++m_workshopIndex;
+            emit changed();
+            runNextWorkshop(dotnet, dll);
+            return;
+        }
+        const auto appId = result.first;
+        auto library = m_settings->downloadLibrary();
+        if (library.isEmpty()) {
+            const auto libs = m_settings->libraries();
+            if (!libs.isEmpty())
+                library = libs.first().toMap().value("path").toString();
+        }
+        const auto root = library.isEmpty()
+            ? QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/psyche/workshop"
+            : library + "/steamapps/workshop/content";
+        const auto dir = root + "/" + appId + "/" + workshopId;
+        QDir().mkpath(dir);
+        auto process = new QProcess(this);
+        m_workshopProcess = process;
+        QStringList args;
+        args << dll << "-app" << appId << "-ugc" << workshopId << "-dir" << dir << "-validate"
+             << "-max-downloads" << "4";
+        connect(process, &QProcess::readyReadStandardOutput, this, [this, process] {
+            const auto data = process->readAllStandardOutput();
+            QRegularExpression re("(\\d{1,3}(?:\\.\\d+)?)%");
+            auto it = re.globalMatch(QString::fromUtf8(data));
+            double percent = -1;
+            while (it.hasNext())
+                percent = it.next().captured(1).toDouble();
+            if (percent >= 0 && m_workshopIndex < m_workshopQueue.size()) {
+                const double overall =
+                    (m_workshopIndex + percent / 100.0) / m_workshopQueue.size();
+                m_workshopPercent = static_cast<int>(overall * 100);
+                m_workshopStatus = QString("Baixando item %1… %2% total")
+                                       .arg(m_workshopQueue[m_workshopIndex].toMap().value("id").toString())
+                                       .arg(m_workshopPercent);
+                emit changed();
+            }
+        });
+        connect(process, &QProcess::readyReadStandardError, this, [this, process] {
+            const auto data = process->readAllStandardError();
+            if (!data.isEmpty()) {
+                m_workshopStatus += " " + QString::fromUtf8(data).trimmed().left(80);
+                emit changed();
+            }
+        });
+        connect(process,
+                qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
+                this,
+                [this, dotnet, dll, token, process](int code, QProcess::ExitStatus) {
+            if (m_workshopProcess == process)
+                m_workshopProcess = nullptr;
+            process->deleteLater();
+            if (token != m_workshopToken)
+                return; // cancelado
+            auto done = m_workshopQueue[m_workshopIndex].toMap();
+            if (code == 0) {
+                done["state"] = "ok";
+            } else {
+                done["state"] = "erro";
+                done["error"] = QString("DepotDownloader saiu com código %1.").arg(code);
+            }
+            m_workshopQueue[m_workshopIndex] = done;
+            ++m_workshopIndex;
+            emit changed();
+            runNextWorkshop(dotnet, dll);
+        });
+        process->start(dotnet, args);
+    });
+    watcher->setFuture(QtConcurrent::run([apiKey, workshopId] {
+        try {
+            return qMakePair(Catalog(apiKey).fetchWorkshopAppId(workshopId), QString());
+        } catch (const std::exception& e) {
+            return qMakePair(QString(), QString::fromUtf8(e.what()));
         }
     }));
 }

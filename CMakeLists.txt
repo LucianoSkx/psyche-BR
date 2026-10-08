@@ -91,6 +91,10 @@ if(BUILD_TESTING)
     target_link_libraries(settings_test PRIVATE psyche_core)
     add_test(NAME settings_persistence COMMAND settings_test)
 
+    add_executable(workshop_test tests/workshop_test.cpp)
+    target_link_libraries(workshop_test PRIVATE psyche_core Qt6::Core)
+    add_test(NAME workshop_ids COMMAND workshop_test)
+
     add_executable(ui_test tests/ui_test.cpp src/backend.cpp src/backend.h)
     target_link_libraries(ui_test PRIVATE
         psyche_core
