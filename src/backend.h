@@ -140,6 +140,7 @@ private:
     // dotnet e DepotDownloader compartilhados por jogo e Workshop.
     QString resolveDotnet() const;
     QString resolveDepotDownloader() const;
+    bool depotDownloaderAcceptsKeys(const QString& dll) const;
     void runNextWorkshop(const QString& dotnet, const QString& dll);
     AppSettings* m_settings;
     QVariantList m_games;

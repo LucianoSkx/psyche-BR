@@ -296,16 +296,26 @@ QStringList Catalog::parseWorkshopIds(const QString& text) {
     return ids;
 }
 
-QVariantMap Catalog::fetchWorkshopInfo(const QString& workshopId) const {
+QVariantMap Catalog::fetchWorkshopInfo(const QString& workshopId, const QString& destDir) const {
     if (!QRegularExpression("^[1-9][0-9]{0,19}$").match(workshopId).hasMatch())
         error("ID de Workshop inválido: " + workshopId);
     QMap<QString, QString> headers;
-    // O corpo é o .manifest binário; só os cabeçalhos interessam aqui.
-    get("/generate/workshopmanifest/" + workshopId, {}, 1024 * 1024, true, 60000, &headers);
+    const auto body = get("/generate/workshopmanifest/" + workshopId, {}, 32 * 1024 * 1024,
+                          true, 60000, &headers);
     const auto appId = headers.value("x-app-id").trimmed();
     if (appId.isEmpty())
         error("Resposta sem X-App-Id para o item de Workshop " + workshopId + ".");
-    return {{"appId", validateAppId(appId)}, {"manifestId", headers.value("x-manifest-id").trimmed()}};
+    const auto manifestId = headers.value("x-manifest-id").trimmed();
+    QVariantMap info{{"appId", validateAppId(appId)}, {"manifestId", manifestId},
+                     {"depotKey", headers.value("x-depot-key").trimmed()}};
+    if (!destDir.isEmpty() && !manifestId.isEmpty() && body.size() > 16) {
+        QDir().mkpath(destDir);
+        const auto path = destDir + "/" + workshopId + "_" + manifestId + ".manifest";
+        QSaveFile file(path);
+        if (file.open(QIODevice::WriteOnly) && file.write(body) == body.size() && file.commit())
+            info.insert("manifestPath", path);
+    }
+    return info;
 }
 
 QString Catalog::fetchSteamWorkshopAppId(const QString& workshopId) const {

@@ -23,8 +23,10 @@ public:
     QList<QVariantMap> depotDetails(const QString& appId) const;
     // Baixa o ZIP de manifestos da Hubcap, extrai os .manifest para destDir e retorna depotId -> manifestId.
     QMap<QString, QString> fetchManifests(const QString& appId, const QString& destDir) const;
-    // AppID/manifest de um item do Workshop, lidos dos cabeçalhos X-App-Id/X-Manifest-Id. Lança em erro.
-    QVariantMap fetchWorkshopInfo(const QString& workshopId) const;
+    // AppID/manifest/chave de depôt de um item do Workshop, lidos dos cabeçalhos
+// X-App-Id/X-Manifest-Id/X-Depot-Key. O corpo (.manifest) é gravado em destDir
+// para ser passado ao DepotDownloader via -manifestfile. Lança em erro.
+    QVariantMap fetchWorkshopInfo(const QString& workshopId, const QString& destDir) const;
     // AppID dono de um item do Workshop pela página pública da Steam. Lança em erro.
     QString fetchSteamWorkshopAppId(const QString& workshopId) const;
     static QStringList parseWorkshopIds(const QString& text);

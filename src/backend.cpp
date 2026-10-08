@@ -202,6 +202,20 @@ QString Backend::resolveDepotDownloader() const {
     return {};
 }
 
+// Só o fork patched aceita -manifestfile/-depotkeys; o oficial oficial ignora as
+// duas e avisa no stderr. O bundle grava qual dos dois está em uso.
+bool Backend::depotDownloaderAcceptsKeys(const QString& dll) const {
+    static bool checked = false;
+    static bool supported = false;
+    if (checked)
+        return supported;
+    checked = true;
+    QFile marker(QFileInfo(dll).absolutePath() + "/variant.txt");
+    if (marker.open(QIODevice::ReadOnly))
+        supported = QString::fromUtf8(marker.readAll()).trimmed() == "mod";
+    return supported;
+}
+
 void Backend::downloadGame(QVariantList selectedDepots) {
     if (m_busy || m_downloading || !m_ready || m_package.keys.isEmpty()) {
         if (m_ready && m_package.keys.isEmpty()) {
@@ -380,8 +394,9 @@ void Backend::runNextWorkshop(const QString& dotnet, const QString& dll) {
     m_workshopStatus = "Buscando manifesto do item " + workshopId + "…";
     emit changed();
     const auto apiKey = m_settings->effectiveApiKey();
+    const auto dataDirWorkshop = m_settings->dataDirectory() + "/workshop";
     auto watcher = new QFutureWatcher<QPair<QVariantMap, QString>>(this);
-    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, dotnet, dll, token, workshopId] {
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, dotnet, dll, token, workshopId, dataDirWorkshop] {
         const auto result = watcher->result();
         watcher->deleteLater();
         if (token != m_workshopToken)
@@ -399,6 +414,20 @@ void Backend::runNextWorkshop(const QString& dotnet, const QString& dll) {
         }
         const auto appId = result.first.value("appId").toString();
         const auto manifestId = result.first.value("manifestId").toString();
+        QStringList extra;
+        // Sem manifesto local e chave de depôt, a Steam recusa conteúdo de jogo
+        // comprado com 401 mesmo com conta anônima.
+        const auto manifestPath = result.first.value("manifestPath").toString();
+        const auto depotKey = result.first.value("depotKey").toString();
+        const auto keysFile = dataDirWorkshop + "/workshop-keys.txt";
+        if (depotDownloaderAcceptsKeys(dll) && !manifestPath.isEmpty() && !depotKey.isEmpty()) {
+            QFile keys(keysFile);
+            if (keys.open(QIODevice::WriteOnly)) {
+                keys.write((appId + ";" + depotKey + "\n").toUtf8());
+                keys.close();
+                extra << "-manifestfile" << manifestPath << "-depotkeys" << keysFile;
+            }
+        }
         auto library = m_settings->downloadLibrary();
         if (library.isEmpty()) {
             const auto libs = m_settings->libraries();
@@ -416,7 +445,7 @@ void Backend::runNextWorkshop(const QString& dotnet, const QString& dll) {
         // O ID colado vem da URL do Workshop, que é um PublishedFileId: -pubfile.
         // -ugc espera o UGC id interno e devolve 404 com um PublishedFileId.
         args << dll << "-app" << appId << "-pubfile" << workshopId << "-dir" << dir << "-validate"
-             << "-max-downloads" << "4";
+             << "-max-downloads" << "4" << extra;
         connect(process, &QProcess::readyReadStandardOutput, this, [this, process] {
             const auto data = process->readAllStandardOutput();
             QRegularExpression re("(\\d{1,3}(?:\\.\\d+)?)%");
@@ -474,16 +503,16 @@ void Backend::runNextWorkshop(const QString& dotnet, const QString& dll) {
         });
         process->start(dotnet, args);
     });
-    watcher->setFuture(QtConcurrent::run([apiKey, workshopId] {
+    watcher->setFuture(QtConcurrent::run([apiKey, workshopId, dataDirWorkshop] {
         try {
-            return qMakePair(Catalog(apiKey).fetchWorkshopInfo(workshopId), QString());
+            return qMakePair(Catalog(apiKey).fetchWorkshopInfo(workshopId, dataDirWorkshop), QString());
         } catch (const std::exception&) {
             // A Hubcap cobre só parte do catálogo; sem o item nela, o AppID sai
             // da página pública da Steam e o manifesto fica vazio no ACF.
             try {
-                const Catalog catalog(apiKey);
-                return qMakePair(QVariantMap{{"appId", catalog.fetchSteamWorkshopAppId(workshopId)},
-                                             {"manifestId", QString()}},
+                return qMakePair(QVariantMap{{"appId", Catalog(apiKey).fetchSteamWorkshopAppId(workshopId)},
+                                             {"manifestId", QString()},
+                                             {"depotKey", QString()}},
                                  QString());
             } catch (const std::exception& e) {
                 return qMakePair(QVariantMap(), QString::fromUtf8(e.what()));
@@ -513,9 +542,11 @@ void Backend::runNextDepot(const QString& dotnet, const QString& dll, const QStr
     m_downloadProcess = process;
     QStringList args;
     const auto osArg = m_settings->downloadOS() == "mac" ? "osx" : m_settings->downloadOS();
-    args << dll << "-app" << appId << "-depot" << entry.first << "-manifest" << entry.second
-         << "-manifestfile" << manifestFile << "-depotkeys" << m_keysFile << "-max-downloads" << "4"
-         << "-dir" << m_downloadDir << "-validate" << "-os" << osArg;
+    args << dll << "-app" << appId << "-depot" << entry.first << "-manifest" << entry.second;
+    // O oficial não conhece estas duas flags e avisa no stderr a cada depôt.
+    if (depotDownloaderAcceptsKeys(dll))
+        args << "-manifestfile" << manifestFile << "-depotkeys" << m_keysFile;
+    args << "-max-downloads" << "4" << "-dir" << m_downloadDir << "-validate" << "-os" << osArg;
     connect(process, &QProcess::readyReadStandardOutput, this, [this, process] {
         const auto data = process->readAllStandardOutput();
         QRegularExpression re("(\\d{1,3}(?:\\.\\d+)?)%");

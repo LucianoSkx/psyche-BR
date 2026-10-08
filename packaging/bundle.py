@@ -41,8 +41,10 @@ def copy_files(source: Path, destination: Path, names: list[str]) -> None:
 
 (root / "lib").mkdir(exist_ok=True)
 
-# DepotDownloader is GPL-2.0 and is not vendored in this repo. Fetch the pinned
-# release from upstream at build time; the bundle ships it unmodified.
+# DepotDownloader é GPL-2.0. O fork patched (niwia/DepotDownloaderModpatched,
+# fonte pública) aceita -manifestfile/-depotkeys, que é o que permite baixar
+# conteúdo de jogo que a conta anônima não possui. O oficial não aceita essas
+# flags, então fica só como reserva para quando o fork não estiver vendorizado.
 DD_VERSION = os.environ.get("PSYCHE_DEPOTDOWNLOADER_VERSION", "3.4.0")
 DD_URL = (
     "https://github.com/SteamRE/DepotDownloader/releases/download/"
@@ -50,25 +52,33 @@ DD_URL = (
 )
 dd_dir = root / "depotdownloader"
 dd_dir.mkdir(exist_ok=True)
-dd_zip = root / "depotdownloader.zip"
-if not dd_zip.exists():
-    try:
-        with urllib.request.urlopen(DD_URL, timeout=120) as response:
-            dd_zip.write_bytes(response.read())
-    except Exception as error:  # noqa: BLE001
-        raise SystemExit(f"Could not download DepotDownloader: {error}")
-with zipfile.ZipFile(dd_zip) as archive:
-    for member in archive.namelist():
-        name = Path(member).name
-        if member.endswith("/") or not name:
-            continue
-        if not name.endswith((".dll", ".json")):
-            continue
-        target = dd_dir / name
-        if not target.exists():
-            with archive.open(member) as source, target.open("wb") as destination:
-                shutil.copyfileobj(source, destination)
-dd_zip.unlink()
+dd_mod = Path("packaging/depotdownloader-mod")
+use_mod = os.environ.get("PSYCHE_DEPOTDOWNLOADER", "mod") != "official"
+DD_ORIGIN = "patched fork by niwia"
+if use_mod and dd_mod.is_dir() and (dd_mod / "DepotDownloader.dll").is_file():
+    shutil.copytree(dd_mod, dd_dir, dirs_exist_ok=True)
+    (dd_dir / "variant.txt").write_text("mod\n")
+else:
+    dd_zip = root / "depotdownloader.zip"
+    if not dd_zip.exists():
+        try:
+            with urllib.request.urlopen(DD_URL, timeout=120) as response:
+                dd_zip.write_bytes(response.read())
+        except Exception as error:  # noqa: BLE001
+            raise SystemExit(f"Could not download DepotDownloader: {error}")
+    with zipfile.ZipFile(dd_zip) as archive:
+        for member in archive.namelist():
+            name = Path(member).name
+            if member.endswith("/") or not name:
+                continue
+            if not name.endswith((".dll", ".json")):
+                continue
+            target = dd_dir / name
+            if not target.exists():
+                with archive.open(member) as source, target.open("wb") as destination:
+                    shutil.copyfileobj(source, destination)
+    dd_zip.unlink()
+    (dd_dir / "variant.txt").write_text("official\n")
 (dd_dir / "DepotDownloader.runtimeconfig.json").write_text(
     """{
   "runtimeOptions": {
@@ -194,14 +204,19 @@ shared libraries from the build system. Shared objects in `lib/` can be replaced
 with compatible builds. Psyche itself is MIT (`LICENSE`). Pixelify Sans is
 SIL OFL (`PixelifySans-OFL.txt`).
 
-`depotdownloader/` holds DepotDownloader {DD_VERSION} (https://github.com/SteamRE/DepotDownloader),
-downloaded unmodified from its GitHub release. DepotDownloader is GPL-2.0 and is
-invoked as a separate process by the game download feature; its source is at the
-URL above. It is not linked into Psyche, which stays MIT.
+`depotdownloader/` holds DepotDownloader {DD_VERSION} ({DD_ORIGIN}), shipped
+unmodified. DepotDownloader is GPL-2.0 and runs as a separate process for the
+game and Workshop downloads; it is not linked into Psyche, which stays MIT.
+
+The binary bundled here is the patched fork from
+https://github.com/niwia/DepotDownloaderModpatched (GPL-2.0), which adds
+-manifestfile and -depotkeys. Without those flags DepotDownloader can only fetch
+content an anonymous Steam account already has access to. Set
+PSYCHE_DEPOTDOWNLOADER=official to fall back to the upstream release.
 """
 )
 urllib.request.urlretrieve(
-    "https://raw.githubusercontent.com/SteamRE/DepotDownloader/master/LICENSE",
+    "https://raw.githubusercontent.com/niwia/DepotDownloaderModpatched/main/LICENSE",
     root / "licenses" / "DepotDownloader-GPL-2.0.txt",
 )
 
