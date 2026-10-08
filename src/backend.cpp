@@ -411,7 +411,9 @@ void Backend::runNextWorkshop(const QString& dotnet, const QString& dll) {
         auto process = new QProcess(this);
         m_workshopProcess = process;
         QStringList args;
-        args << dll << "-app" << appId << "-ugc" << workshopId << "-dir" << dir << "-validate"
+        // O ID colado vem da URL do Workshop, que é um PublishedFileId: -pubfile.
+        // -ugc espera o UGC id interno e devolve 404 com um PublishedFileId.
+        args << dll << "-app" << appId << "-pubfile" << workshopId << "-dir" << dir << "-validate"
              << "-max-downloads" << "4";
         connect(process, &QProcess::readyReadStandardOutput, this, [this, process] {
             const auto data = process->readAllStandardOutput();

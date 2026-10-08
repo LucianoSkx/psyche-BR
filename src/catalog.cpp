@@ -98,7 +98,9 @@ QByteArray Catalog::get(const QString& endpoint,
     if (status == 403)
         error("Acesso negado pela Hubcap (403).");
     if (status == 404)
-        error("AppID/pacote não encontrado na Hubcap (404).");
+        error(endpoint.startsWith("/generate/workshopmanifest")
+                  ? "Item de Workshop não encontrado na Hubcap (404). Ele pode ter sido removido do Steam."
+                  : "AppID/pacote não encontrado na Hubcap (404).");
     if (status == 429)
         error("Limite da Hubcap atingido (429).");
     if (status == 503 && endpoint == "/health")
