@@ -205,15 +205,10 @@ QString Backend::resolveDepotDownloader() const {
 // Só o fork patched aceita -manifestfile/-depotkeys; o oficial oficial ignora as
 // duas e avisa no stderr. O bundle grava qual dos dois está em uso.
 bool Backend::depotDownloaderAcceptsKeys(const QString& dll) const {
-    static bool checked = false;
-    static bool supported = false;
-    if (checked)
-        return supported;
-    checked = true;
     QFile marker(QFileInfo(dll).absolutePath() + "/variant.txt");
-    if (marker.open(QIODevice::ReadOnly))
-        supported = QString::fromUtf8(marker.readAll()).trimmed() == "mod";
-    return supported;
+    if (!marker.open(QIODevice::ReadOnly))
+        return false;
+    return QString::fromUtf8(marker.readAll()).trimmed() == "mod";
 }
 
 void Backend::downloadGame(QVariantList selectedDepots) {
