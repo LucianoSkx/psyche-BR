@@ -308,6 +308,41 @@ QVariantMap Catalog::fetchWorkshopInfo(const QString& workshopId) const {
     return {{"appId", validateAppId(appId)}, {"manifestId", headers.value("x-manifest-id").trimmed()}};
 }
 
+QString Catalog::fetchSteamWorkshopAppId(const QString& workshopId) const {
+    if (!QRegularExpression("^[1-9][0-9]{0,19}$").match(workshopId).hasMatch())
+        error("ID de Workshop inválido: " + workshopId);
+    // A Hubcap só tem parte do catálogo; a página pública da Steam resolve o resto.
+    // Só o AppID importa aqui: o DepotDownloader oficial busca a chave de depôt na
+    // Steam, então a chave que a Hubcap devolve não seria usada.
+    auto url = QUrl("https://steamcommunity.com/sharedfiles/filedetails/");
+    url.setQuery(QUrlQuery{{"id", workshopId}});
+    QNetworkAccessManager manager;
+    QNetworkRequest request(url);
+    request.setRawHeader("User-Agent", "psyche/" PSYCHE_VERSION);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                         QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setTransferTimeout(30000);
+    auto reply = manager.get(request);
+    QEventLoop loop;
+    QTimer timer;
+    timer.setSingleShot(true);
+    QByteArray data;
+    QObject::connect(reply, &QIODevice::readyRead, &loop, [&] { data += reply->readAll(); });
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    QObject::connect(&timer, &QTimer::timeout, &loop, [&] { reply->abort(); });
+    timer.start(40000);
+    loop.exec();
+    data += reply->readAll();
+    timer.stop();
+    if (reply->error() != QNetworkReply::NoError && data.isEmpty())
+        error("Não foi possível abrir a página do item na Steam: " + reply->errorString());
+    // Links de browse do jogo dono aparecem como appid=<id>.
+    auto match = QRegularExpression("appid=([1-9][0-9]{0,9})\\b").match(QString::fromUtf8(data));
+    if (!match.hasMatch())
+        error("A Steam não expôs o AppID do item de Workshop " + workshopId + ".");
+    return validateAppId(match.captured(1));
+}
+
 QStringList Catalog::supportedPlatforms(const QString& appId) const {
     QSet<QString> platforms;
     for (const auto& entry : depotDetails(appId))

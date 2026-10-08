@@ -477,8 +477,17 @@ void Backend::runNextWorkshop(const QString& dotnet, const QString& dll) {
     watcher->setFuture(QtConcurrent::run([apiKey, workshopId] {
         try {
             return qMakePair(Catalog(apiKey).fetchWorkshopInfo(workshopId), QString());
-        } catch (const std::exception& e) {
-            return qMakePair(QVariantMap(), QString::fromUtf8(e.what()));
+        } catch (const std::exception&) {
+            // A Hubcap cobre só parte do catálogo; sem o item nela, o AppID sai
+            // da página pública da Steam e o manifesto fica vazio no ACF.
+            try {
+                const Catalog catalog(apiKey);
+                return qMakePair(QVariantMap{{"appId", catalog.fetchSteamWorkshopAppId(workshopId)},
+                                             {"manifestId", QString()}},
+                                 QString());
+            } catch (const std::exception& e) {
+                return qMakePair(QVariantMap(), QString::fromUtf8(e.what()));
+            }
         }
     }));
 }
