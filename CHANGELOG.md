@@ -1,5 +1,13 @@
 # Changelog
 
+## Não publicado — downloads de jogo e Workshop
+
+- Aba Downloads com dois cards: jogo (depots com checkbox, sistema filtrado pelos `oslist`, biblioteca Steam detectada) e Workshop.
+- Workshop: cole URLs ou IDs, fila com estado por item, cancelar. Grava o `appworkshop_<appid>.acf` mesclando o item nos que já estavam.
+- DepotDownloader patched (fork GPL-2.0 do niwia, vendorizado) no lugar do upstream: é o que aceita `-manifestfile`/`-depotkeys` e baixa conteúdo de jogo comprado.
+- Busca reordenada por relevância, com rebaixamento de soundtrack/DLC/demo e selo do ProtonDB.
+- Aviso de falta de conexão, botões Apagar e Colar na busca, Apagar na chave Hubcap.
+
 ## psyche-BR — interface em pt-BR (fork de ciscosweater/psyche)
 
 - Todos os textos visíveis (QML, status, erros, CLI, instalador do pacote) traduzidos; identificadores, chaves e protocolos intactos.
