@@ -571,7 +571,8 @@ ApplicationWindow {
                             placeholderText: "https://steamcommunity.com/sharedfiles/filedetails/?id=123456789"
                             background: Rectangle { color: window.canvas; radius: 4; border.color: window.border }
                             text: backend.workshopInput
-                            onTextEdited: backend.workshopInput = text
+                            // TextArea só ganhou textEdited no Qt 6.9; textChanged existe em todos.
+                            onTextChanged: backend.workshopInput = text
                             enabled: !backend.workshopBusy
                             Accessible.name: "IDs de mods do Workshop"
                         }
