@@ -211,6 +211,23 @@ bool Backend::depotDownloaderAcceptsKeys(const QString& dll) const {
     return QString::fromUtf8(marker.readAll()).trimmed() == "mod";
 }
 
+QPair<QList<QPair<QString, QString>>, QStringList>
+Backend::splitDownloadQueue(const QMap<QString, QString>& keys, const QSet<QString>& wanted,
+                            const QMap<QString, QString>& manifests) {
+    QList<QPair<QString, QString>> queue;
+    QStringList missing;
+    for (auto it = keys.constBegin(); it != keys.constEnd(); ++it) {
+        if (!wanted.isEmpty() && !wanted.contains(it.key()))
+            continue;
+        const auto manifest = manifests.value(it.key());
+        if (!manifest.isEmpty())
+            queue.append({it.key(), manifest});
+        else
+            missing.append(it.key());
+    }
+    return {queue, missing};
+}
+
 void Backend::downloadGame(QVariantList selectedDepots) {
     if (m_busy || m_downloading || !m_ready || m_package.keys.isEmpty()) {
         if (m_ready && m_package.keys.isEmpty()) {
@@ -260,6 +277,7 @@ void Backend::downloadGame(QVariantList selectedDepots) {
             return;
         }
         m_downloadQueue.clear();
+        m_downloadMissing.clear();
         QSet<QString> wanted;
         for (const auto& depot : selectedDepots)
             wanted.insert(depot.toString());
@@ -267,10 +285,10 @@ void Backend::downloadGame(QVariantList selectedDepots) {
             if (!wanted.isEmpty() && !wanted.contains(it.key()))
                 continue;
             keysFile.write((it.key() + ";" + it.value() + "\n").toUtf8());
-            const auto manifest = manifests.value(it.key());
-            if (!manifest.isEmpty())
-                m_downloadQueue.append({it.key(), manifest});
         }
+        const auto split = splitDownloadQueue(m_package.keys, wanted, manifests);
+        m_downloadQueue = split.first;
+        m_downloadMissing = split.second;
         keysFile.close();
         if (m_downloadQueue.isEmpty()) {
             m_downloading = false;
@@ -520,6 +538,9 @@ void Backend::runNextDepot(const QString& dotnet, const QString& dll, const QStr
     if (m_downloadIndex >= m_downloadQueue.size()) {
         m_downloading = false;
         m_downloadStatus = "Download concluído.";
+        if (!m_downloadMissing.isEmpty())
+            m_downloadStatus += " Sem manifesto na Hubcap para os depôts: "
+                + m_downloadMissing.join(", ") + ".";
         m_downloadPercent = 100;
         QDirIterator it(m_downloadDir, {"EOSSDK*.dll"}, QDir::Files, QDirIterator::Subdirectories);
         while (it.hasNext()) {

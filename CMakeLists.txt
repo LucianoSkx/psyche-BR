@@ -101,6 +101,10 @@ if(BUILD_TESTING)
     target_link_libraries(workshop_acf_test PRIVATE psyche_core Qt6::Core)
     add_test(NAME workshop_acf COMMAND workshop_acf_test)
 
+    add_executable(download_test tests/download_test.cpp src/backend.cpp src/backend.h)
+    target_link_libraries(download_test PRIVATE psyche_core Qt6::Core Qt6::Gui Qt6::Concurrent)
+    add_test(NAME download_queue COMMAND download_test)
+
     add_executable(ui_test tests/ui_test.cpp src/backend.cpp src/backend.h)
     target_link_libraries(ui_test PRIVATE
         psyche_core

@@ -125,6 +125,11 @@ public:
         m_workshopStatus.clear();
         emit changed();
     }
+    // Separa os depôts com manifesto (entram na fila) dos sem manifesto (só
+    // aviso no status final). `wanted` vazio = todos os depôts de `keys`.
+    static QPair<QList<QPair<QString, QString>>, QStringList>
+    splitDownloadQueue(const QMap<QString, QString>& keys, const QSet<QString>& wanted,
+                       const QMap<QString, QString>& manifests);
     Q_INVOKABLE void openFolder(QString path);
 signals:
     void changed();
@@ -165,6 +170,7 @@ private:
     QString m_downloadStatus, m_downloadDir;
     QProcess* m_downloadProcess = nullptr;
     QList<QPair<QString, QString>> m_downloadQueue;
+    QStringList m_downloadMissing;
     int m_downloadIndex = 0;
     QString m_keysFile, m_manifestsDir;
     QString m_workshopInput, m_workshopStatus;
