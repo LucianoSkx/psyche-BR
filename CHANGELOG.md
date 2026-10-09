@@ -1,6 +1,6 @@
 # Changelog
 
-## Não publicado — downloads de jogo e Workshop
+## 1.3.0 — 2026-10-09
 
 - Aba Downloads com dois cards: jogo (depots com checkbox, sistema filtrado pelos `oslist`, biblioteca Steam detectada) e Workshop.
 - Workshop: cole URLs ou IDs, fila com estado por item, cancelar. Grava o `appworkshop_<appid>.acf` mesclando o item nos que já estavam.
