@@ -21,6 +21,22 @@ def _first_existing(*candidates):
 qt = Path(os.environ.get(
     "PSYCHE_QT_DIR",
     _first_existing("/usr/lib/qt6", "/usr/lib/x86_64-linux-gnu/qt6")))
+# No Debian os binários ficam em /usr/lib/qt6 e os módulos/plugins no multiarch;
+# no Arch tudo mora sob /usr/lib/qt6. Resolve cada um por conta própria.
+def _require_dir(label, *candidates):
+    for candidate in candidates:
+        if Path(candidate).is_dir():
+            return Path(candidate)
+    raise SystemExit(f"{label} não encontrado (tentado: {', '.join(candidates)})")
+
+qt_qml = Path(os.environ.get(
+    "PSYCHE_QML_DIR",
+    _require_dir("Diretório de módulos QML", qt / "qml",
+                 "/usr/lib/x86_64-linux-gnu/qt6/qml", "/usr/lib/qt6/qml")))
+qt_plugins = Path(os.environ.get(
+    "PSYCHE_QT_PLUGINS_DIR",
+    _require_dir("Diretório de plugins Qt", qt / "plugins",
+                 "/usr/lib/x86_64-linux-gnu/qt6/plugins", "/usr/lib/qt6/plugins")))
 scanner = os.environ.get(
     "PSYCHE_QMLIMPORTSCANNER",
     _first_existing("/usr/lib/qt6/qmlimportscanner", "/usr/lib/qt6/libexec/qmlimportscanner"))
@@ -97,7 +113,7 @@ imports = json.loads(
             "-rootPath",
             "qml",
             "-importPath",
-            str(qt / "qml"),
+            str(qt_qml),
         ]
     )
 )
@@ -116,29 +132,29 @@ for style in ("Fusion", "Material", "Imagine", "Universal"):
 for types in (root / "qml").rglob("*.qmltypes"):
     types.unlink()
 
-copy_files(qt / "plugins" / "platforms", root / "plugins" / "platforms", [
+copy_files(qt_plugins / "platforms", root / "plugins" / "platforms", [
     "libqxcb.so",
     "libqwayland.so",
     "libqwayland-generic.so",
 ])
-copy_files(qt / "plugins" / "imageformats", root / "plugins" / "imageformats", [
+copy_files(qt_plugins / "imageformats", root / "plugins" / "imageformats", [
     "libqjpeg.so",
     "libqsvg.so",
 ])
-copy_files(qt / "plugins" / "tls", root / "plugins" / "tls", ["libqopensslbackend.so"])
-copy_files(qt / "plugins" / "iconengines", root / "plugins" / "iconengines", ["libqsvgicon.so"])
+copy_files(qt_plugins / "tls", root / "plugins" / "tls", ["libqopensslbackend.so"])
+copy_files(qt_plugins / "iconengines", root / "plugins" / "iconengines", ["libqsvgicon.so"])
 copy_files(
-    qt / "plugins" / "wayland-shell-integration",
+    qt_plugins / "wayland-shell-integration",
     root / "plugins" / "wayland-shell-integration",
     ["libxdg-shell.so"],
 )
 copy_files(
-    qt / "plugins" / "wayland-decoration-client",
+    qt_plugins / "wayland-decoration-client",
     root / "plugins" / "wayland-decoration-client",
     ["libbradient.so"],
 )
 copy_files(
-    qt / "plugins" / "wayland-graphics-integration-client",
+    qt_plugins / "wayland-graphics-integration-client",
     root / "plugins" / "wayland-graphics-integration-client",
     ["libshm-emulation-server.so"],
 )
