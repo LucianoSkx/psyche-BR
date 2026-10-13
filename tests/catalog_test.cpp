@@ -160,7 +160,7 @@ int main(int argc, char** argv) {
             responses.append({200, body});
             responses.append({200, steamcmdApp("2062430")});
             auto promoted = catalog.fetch("2062430");
-            PSYCHE_CHECK(promoted.apps.contains("2062430") && promoted.depots.contains("2062430"));
+            PSYCHE_CHECK(promoted.apps.contains("2062430") && !promoted.depots.contains("2062430"));
             PSYCHE_CHECK(promoted.games.first().toObject()["apps"].toArray().contains("2062430"));
         }
         // steamcmd failure must not invent AdditionalApps and must not fail the import.

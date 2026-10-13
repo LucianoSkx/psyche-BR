@@ -255,6 +255,7 @@ ApplicationWindow {
         anchors.fill: parent; currentIndex: tabs.currentIndex
         Pane {
             padding: 16; background: Item {}
+            Rectangle { anchors.fill: parent; opacity: 0.06; gradient: Gradient { GradientStop { position: 0.0; color: "#4a5568" } GradientStop { position: 0.5; color: "#2d3748" } GradientStop { position: 1.0; color: "#718096" } }; visible: tabs.currentIndex === 0 }
             ColumnLayout {
                 anchors.fill: parent; spacing: 10
                 RowLayout {
@@ -324,6 +325,7 @@ ApplicationWindow {
                         visible: results.count === 0 && !backend.busy && results.height > 90
                         PixelText { text: window.searched ? "Nada aqui." : "Qual jogo?"; font.pixelSize: 30; anchors.horizontalCenter: parent.horizontalCenter }
                         Label { textFormat: Text.PlainText; text: window.searched ? "Tente outro nome." : "Busque acima ou abra um ZIP."; color: window.muted; anchors.horizontalCenter: parent.horizontalCenter }
+                        Label { textFormat: Text.PlainText; text: "psyche " + window.version; font.pixelSize: 14; color: window.muted; anchors.horizontalCenter: parent.horizontalCenter }
                     }
                     BusyIndicator { anchors.centerIn: parent; running: backend.activity === "search"; visible: running; palette.dark: window.accent }
                 }
