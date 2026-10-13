@@ -4,7 +4,7 @@ App Linux (C++17, Qt 6/QML) que busca na Hubcap, importa pacotes Lua/ZIP, mescla
 
 Fork do [ciscosweater/psyche](https://github.com/ciscosweater/psyche). Interface traduzida; a busca foi reordenada por relevância e os downloads são novidade do fork.
 
-Não instala plugins da Steam nem executa Lua. Lua é só lido. Edições no YAML preservam comentários e gravam backup antes.
+Não instala plugins da Steam nem executa Lua. Lua é lida apenas. Edições no YAML preservam comentários e gravam backup antes.
 
 Renderizador padrão é software (`QT_QUICK_BACKEND`).
 
