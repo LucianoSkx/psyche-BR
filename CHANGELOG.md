@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.3 — 2026-10-13
+
+- Corrige versão e tag para v1.3.3 (bundle.py com qt_qml/qt_plugins). Botão `Gerar Chave` nas Configurações.
+
 ## 1.3.2 — 2026-10-13
 
 - Corrige promoção de depôt: AppID confirmado removido de AdditionalDepots.
