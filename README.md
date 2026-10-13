@@ -33,19 +33,21 @@ cmake --build build -j
 
 ## Downloads
 
-A aba Downloads tem dois cards lado a lado.
+A aba Downloads apresenta dois cards lado a lado.
 
-**Jogo.** Depots com checkbox, sistema (Linux/Windows/macOS, filtrado pelos `oslist` reais do jogo) e biblioteca Steam detectada. O pacote vem pronto da aba Importar. Os manifestos são buscados na Hubcap e ficam em cache; o destino é `steamapps/common/<nome>` na biblioteca escolhida.
+### Jogo
 
-**Workshop.** Cole URLs ou IDs de mods (um por linha, espaço ou vírgula; duplicatas saem), veja a fila e baixe todos. Os mods vão para `steamapps/workshop/content/<appid>/<id>`, e o app grava o `appworkshop_<appid>.acf` da biblioteca mesclando o item novo nos que já estavam, para a Steam listar como instalado.
+Depots com checkbox, sistema (Linux/Windows/macOS, filtrado pelos `oslist` reais do jogo) e biblioteca Steam detectada. O pacote vem pronto da aba Importar. Os manifestos são buscados na Hubcap e armazenados em cache; o destino é `steamapps/common/<nome>` na biblioteca selecionada.
 
-O AppID de cada item vem da Hubcap; quando ela não tem o item no catálogo, sai da página pública da Steam.
+### Workshop
 
-Requisitos: runtime **.NET 9** (procure em `~/.dotnet/dotnet`, `/usr/share/dotnet/dotnet` ou no `PATH`) e o binário do DepotDownloader, que já vem no pacote instalado.
+Cole URLs ou IDs de mods (um por linha, espaço ou vírgula; duplicatas são ignoradas), veja a fila e baixe todos. Os mods vão para `steamapps/workshop/content/<appid>/<id>`, e o app grava o `appworkshop_<appid>.acf` mesclando o item nos que já estavam, para a Steam listar como instalado.
 
-Ambos os fluxos usam um fork patched do DepotDownloader (`niwia/DepotDownloaderModpatched`, GPL-2.0), que aceita `-manifestfile` e `-depotkeys`. Sem essas flags o DepotDownloader oficial só alcança conteúdo que a conta anônima da Steam já acessa, e devolve `not available from this account` para jogo comprado. Para builds com o upstream, use `PSYCHE_DEPOTDOWNLOADER=official` no `packaging/bundle.py`.
+O AppID de cada item vem da Hubcap; quando ela não tem o item no catálogo, sai da página pública da Steam. Para conteúdo de jogo comprado, é necessário o fork patched (niwia/DepotDownloaderModpatched, GPL-2.0) que aceita `-manifestfile` e `-depotkeys`. Sem essas flags, o DepotDownloader oficial responde "not available from this account" para jogos comprados.
 
-Cancelar interrompe o processo em andamento. O ACF só é gravado quando existe biblioteca Steam escolhida — sem ela a Steam não lê o arquivo.
+Requisitos: runtime **.NET 9** (procure em `~/.dotnet/dotnet` ou `PATH`) e o binário do DepotDownloader, que já vem no pacote. O `PSYCHE_DEPOTDOWNLOADER=official` no `packaging/bundle.py` é fallback para o upstream.
+
+Cancelamento interrompe o download em andamento. O ACF só é gravado quando existe biblioteca Steam escolhida — sem ela, a Steam não lê o arquivo.
 
 ## CLI
 
@@ -66,7 +68,7 @@ Defina a chave em Configurações ou exporte `PSYCHE_HUBCAP_API_KEY`.
 
 Se nenhum estiver definido, o psyche lê `morrenus_api_key` do ASSella em `$XDG_CONFIG_HOME/Tachibana Labs/ACCELA.conf` (só leitura).
 
-A chave salva vai sem criptografia para `~/.local/share/psyche/settings.json` (arquivo `0600`, diretório `0700`). Marque **Lembrar neste computador** só se quiser isso.
+A chave salva vai sem criptografia para `~/.local/share/psyche/settings.json` (arquivo `0600`, diretório `0700`). Marque **Lembrar deste computador** só se quiser isso.
 
 ## Licença
 
