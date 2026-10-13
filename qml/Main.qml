@@ -255,7 +255,16 @@ ApplicationWindow {
         anchors.fill: parent; currentIndex: tabs.currentIndex
         Pane {
             padding: 16; background: Item {}
-            Rectangle { anchors.fill: parent; opacity: 0.06; gradient: Gradient { GradientStop { position: 0.0; color: "#4a5568" } GradientStop { position: 0.5; color: "#2d3748" } GradientStop { position: 1.0; color: "#718096" } }; visible: tabs.currentIndex === 0 }
+            Rectangle {
+                anchors.fill: parent
+                opacity: 0.06
+                visible: tabs.currentIndex === 0
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: "#4a5568" }
+                    GradientStop { position: 0.5; color: "#2d3748" }
+                    GradientStop { position: 1.0; color: "#718096" }
+                }
+            }
             ColumnLayout {
                 anchors.fill: parent; spacing: 10
                 RowLayout {
