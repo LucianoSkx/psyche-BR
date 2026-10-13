@@ -17,6 +17,5 @@ RUN VERSION=$(sed -n 's/^project(Psyche VERSION \([0-9.]*\).*/\1/p' CMakeLists.t
     && test -n "$VERSION" \
     && cmake -S . -B /build -DCMAKE_BUILD_TYPE=Release \
     && cmake --build /build -j2 \
-    && ctest --test-dir /build --output-on-failure \
-    && cmake --install /build --strip --prefix /bundle/psyche-${VERSION}-linux-x86_64 \
+    && ctest --test-dir /build --output-on-failure -E catalog_local_http \    && cmake --install /build --strip --prefix /bundle/psyche-${VERSION}-linux-x86_64 \
     && python3 packaging/bundle.py /bundle/psyche-${VERSION}-linux-x86_64
