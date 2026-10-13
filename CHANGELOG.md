@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.2 — 2026-10-13
+
+- Corrige promoção de depôt: AppID confirmado removido de AdditionalDepots.
+
 ## 1.3.1 — 2026-10-13
 
 - Configurações ganha o botão Gerar Chave, que abre o site da Hubcap.
