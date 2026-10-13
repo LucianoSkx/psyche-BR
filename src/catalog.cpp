@@ -431,6 +431,7 @@ void Catalog::promoteKeyedApps(Package& package, QUrl base) {
     if (confirmed.isEmpty())
         return;
     package.apps.unite(confirmed);
+    package.depots.subtract(confirmed); // AppID confirmado não deve ficar também em AdditionalDepots
     auto name = !package.games.isEmpty()
                     ? package.games.first().toObject()["name"].toString()
                     : (!package.mainAppId.isEmpty() ? "AppID " + package.mainAppId : QString());
