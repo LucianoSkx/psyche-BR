@@ -763,7 +763,7 @@ ApplicationWindow {
                                 }
                             }
                             Action {
-                                text: "Criar API KEY"; enabled: !backend.busy
+                                text: "Gerar Chave"; enabled: !backend.busy
                                 Accessible.name: "Abrir site da Hubcap para criar chave"
                                 onClicked: Qt.openUrlExternally("https://hubcapmanifest.com/")
                             }

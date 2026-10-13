@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.1 — 2026-10-13
+
+- Configurações ganha o botão Gerar Chave, que abre o site da Hubcap.
+
 ## 1.3.0 — 2026-10-09
 
 - Aba Downloads com dois cards: jogo (depots com checkbox, sistema filtrado pelos `oslist`, biblioteca Steam detectada) e Workshop.
