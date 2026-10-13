@@ -762,6 +762,11 @@ ApplicationWindow {
                                     }
                                 }
                             }
+                            Action {
+                                text: "Criar chave no site da Hubcap"; enabled: !backend.busy
+                                Accessible.name: "Abrir site da Hubcap para criar chave"
+                                onClicked: Qt.openUrlExternally("https://hubcapmanifest.com/")
+                            }
                             Label { textFormat: Text.PlainText; id: savedLabel; color: window.muted }
                         }
                     }
