@@ -9,8 +9,6 @@
 
 namespace {
 
-// Um ACF é texto VDF: pares "chave" "valor" e blocos "chave" { ... }.
-// Blocos viram QVariantMap; valores escalares viram QString.
 struct Parser {
     const QString& text;
     int pos = 0;
@@ -110,7 +108,7 @@ qint64 dirSize(const QString& path) {
     return total;
 }
 
-} // namespace
+}
 
 QString registerWorkshopItem(const QString& acfPath,
                              const QString& appId,
@@ -135,7 +133,6 @@ QString registerWorkshopItem(const QString& acfPath,
 
     const auto oldInstalled = installed.value(workshopId).toMap();
     const auto oldDetail = details.value(workshopId).toMap();
-    // Sem manifest do Hubcap, preserva o que já estava gravado para o item.
     const auto manifest = !manifestId.isEmpty()
                               ? manifestId
                               : oldInstalled.value("manifest").toString();

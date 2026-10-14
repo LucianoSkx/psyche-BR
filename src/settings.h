@@ -39,7 +39,6 @@ class AppSettings : public QObject {
     Q_PROPERTY(bool settingsError READ settingsError NOTIFY changed)
 public:
     explicit AppSettings(QObject* parent = nullptr);
-    // Test constructor: fake home/data roots instead of the real user dirs.
     AppSettings(QString home,
                 QString data,
                 QString config,

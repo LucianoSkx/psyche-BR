@@ -24,7 +24,7 @@ void merge(Package& target, const Package& source) {
     for (auto it = source.labels.begin(); it != source.labels.end(); ++it)
         target.labels[it.key()] = it.value();
 }
-} // namespace
+}
 int runCli() {
     QTextStream out(stdout), err(stderr);
     QCommandLineParser parser;
@@ -68,7 +68,7 @@ int runCli() {
         else
             zips.append(input);
     }
-    ids.removeDuplicates(); // One Hubcap download per AppID.
+    ids.removeDuplicates();
     if (parser.isSet("content") && ids.isEmpty()) {
         err << "--content exige um AppID.\n";
         return 2;

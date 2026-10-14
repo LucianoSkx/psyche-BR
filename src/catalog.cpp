@@ -33,7 +33,7 @@ QString field(const QJsonObject& object, const QStringList& names) {
     }
     return {};
 }
-} // namespace
+}
 Catalog::Catalog(QString apiKey, QUrl base, QUrl appInfo)
     : m_key(apiKey.trimmed()), m_base(base), m_appInfo(appInfo) {}
 QString Catalog::validateAppId(const QString& value) {
@@ -60,7 +60,6 @@ QByteArray Catalog::get(const QString& endpoint,
     if (authenticated)
         request.setRawHeader("Authorization", "Bearer " + m_key.toUtf8());
     request.setRawHeader("User-Agent", "psyche/" PSYCHE_VERSION);
-    // Don't follow redirects with the Hubcap bearer token. TLS stays on.
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::ManualRedirectPolicy);
     request.setTransferTimeout(qMin(15000, timeout));
@@ -125,7 +124,7 @@ QVariantMap responseObject(const QByteArray& bytes) {
         error("Resposta de status Hubcap inválida.");
     return doc.object().toVariantMap();
 }
-} // namespace
+}
 QVariantMap Catalog::health() const {
     auto result = responseObject(get("/health", {}, 256 * 1024, false));
     auto status = result.value("status").toString();
@@ -321,9 +320,6 @@ QVariantMap Catalog::fetchWorkshopInfo(const QString& workshopId, const QString&
 QString Catalog::fetchSteamWorkshopAppId(const QString& workshopId) const {
     if (!QRegularExpression("^[1-9][0-9]{0,19}$").match(workshopId).hasMatch())
         error("ID de Workshop inválido: " + workshopId);
-    // A Hubcap só tem parte do catálogo; a página pública da Steam resolve o resto.
-    // Só o AppID importa aqui: o DepotDownloader oficial busca a chave de depôt na
-    // Steam, então a chave que a Hubcap devolve não seria usada.
     auto url = QUrl("https://steamcommunity.com/sharedfiles/filedetails/");
     url.setQuery(QUrlQuery{{"id", workshopId}});
     QNetworkAccessManager manager;
@@ -346,7 +342,6 @@ QString Catalog::fetchSteamWorkshopAppId(const QString& workshopId) const {
     timer.stop();
     if (reply->error() != QNetworkReply::NoError && data.isEmpty())
         error("Não foi possível abrir a página do item na Steam: " + reply->errorString());
-    // Links de browse do jogo dono aparecem como appid=<id>.
     auto match = QRegularExpression("appid=([1-9][0-9]{0,9})\\b").match(QString::fromUtf8(data));
     if (!match.hasMatch())
         error("A Steam não expôs o AppID do item de Workshop " + workshopId + ".");
@@ -420,7 +415,6 @@ void Catalog::promoteKeyedApps(Package& package, QUrl base) {
             if (!info.isObject())
                 continue;
             auto common = info.toObject()["common"];
-            // Apps return PICS `common`; depots come back as {}.
             if (!common.isObject() || common.toObject().isEmpty())
                 continue;
             confirmed.insert(id);
@@ -431,7 +425,7 @@ void Catalog::promoteKeyedApps(Package& package, QUrl base) {
     if (confirmed.isEmpty())
         return;
     package.apps.unite(confirmed);
-    package.depots.subtract(confirmed); // AppID confirmado não deve ficar também em AdditionalDepots
+    package.depots.subtract(confirmed);
     auto name = !package.games.isEmpty()
                     ? package.games.first().toObject()["name"].toString()
                     : (!package.mainAppId.isEmpty() ? "AppID " + package.mainAppId : QString());
@@ -439,7 +433,6 @@ void Catalog::promoteKeyedApps(Package& package, QUrl base) {
         package.setGameName(name);
 }
 
-// Steam store lookup uses an unauthenticated Catalog; no Hubcap token.
 bool Catalog::resolveGameName(Package& package, QUrl base) {
     auto appId = package.mainAppId;
     if (appId.isEmpty() && package.apps.size() == 1)

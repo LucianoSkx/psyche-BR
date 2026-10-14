@@ -39,7 +39,6 @@ static void key(Package& p, QString depot, QString value) {
     p.depots.insert(depot);
     p.keys[depot] = value;
 }
-// Tokenize Lua without running it. Strings and comments are not treated as calls.
 struct LuaToken {
     QString text;
     bool string = false;
@@ -147,7 +146,6 @@ static void readLua(Package& p, const QString& source) {
     }
 }
 
-// Reject symlink components, including ancestors, on destination and backup paths.
 static void noSymlinks(const QString& path) {
     QString current = QDir::rootPath();
     for (const auto& part : QFileInfo(path).absoluteFilePath().split('/', Qt::SkipEmptyParts)) {
@@ -235,7 +233,7 @@ Package readPackage(const QString& path) {
             fail("ZIP danificado ou criptografado");
         QString base = QFileInfo(name).fileName();
         if (base == "download.lua" || base == "spliced-tickets.lua") {
-            continue; // Skip plugin files; they are installed separately.
+            continue;
         } else if (base.endsWith(".yaml") || base.endsWith(".yml")) {
             auto root = YAML::Load(data.toStdString());
             if (!root.IsMap())
@@ -317,7 +315,6 @@ void restoreBackupContents(const QString& directory, const QString& backup, bool
             fail("Destino de metadados da biblioteca inválido");
         files.append({path, false, {}});
     }
-    // Load the full backup before touching destination files.
     for (const auto& file : files) {
         noSymlinks(file.path);
         if (file.existed) {
@@ -355,7 +352,6 @@ static QByteArray fillEmptyField(QByteArray text,
     return text;
 }
 
-// Blank line before a newly appended option; leave existing spacing alone.
 static QByteArray sectionGap(const QByteArray& text, int offset, const QByteArray& nl) {
     if (offset == 0)
         return {};
@@ -406,7 +402,6 @@ static QByteArray enablePlugins(QByteArray text, const QByteArray& nl) {
     return text;
 }
 
-// Rewrite empty or old psyche multiline flow collections in place.
 static QByteArray blockCollection(QByteArray text, const QString& field) {
     auto root = YAML::Load(text.toStdString());
     if (!root.IsMap() || root.Style() == YAML::EmitterStyle::Flow)
@@ -452,7 +447,7 @@ static QByteArray blockCollection(QByteArray text, const QString& field) {
         return text;
     }
     if (!interior.contains('\n'))
-        return text; // Leave compact one-line collections as-is.
+        return text;
     QList<QPair<int, QByteArray>> rows;
     for (auto item : node) {
         auto value = mapping ? item.first : YAML::Node(item);
@@ -491,7 +486,6 @@ static QByteArray blockCollection(QByteArray text, const QString& field) {
     return text;
 }
 
-// Touch only managed fields. Keep comments, other scalars, and newline style.
 QByteArray formatManagedYaml(QByteArray text) {
     auto root = YAML::Load(text.toStdString());
     if (!root.IsMap() || root.Style() == YAML::EmitterStyle::Flow)
@@ -529,7 +523,6 @@ QByteArray formatManagedYaml(QByteArray text) {
             int begin = field.line;
             while (begin > fields[i - 1].line + 1 && blank(begin - 1))
                 --begin;
-            // Leave a comment that belongs to the next option.
             if (begin > 0 && !lines[begin - 1].trimmed().startsWith('#')) {
                 for (int j = begin; j < field.line; ++j)
                     remove.insert(j);
@@ -596,12 +589,10 @@ QByteArray formatManagedYaml(QByteArray text) {
     }
     if (!fields.isEmpty() && fields.last().managed && !result.endsWith(nl))
         result += nl;
-    // Parse after edits; don't round-trip through yaml-cpp emit.
     YAML::Load(result.toStdString());
     return result;
 }
 
-// Reject anchors/aliases on managed fields so edits stay in that collection.
 void validateManagedYaml(const QByteArray& text) {
     auto documents = YAML::LoadAll(text.toStdString());
     if (documents.size() > 1)
@@ -642,7 +633,6 @@ void validateManagedYaml(const QByteArray& text) {
     }
 }
 
-// Patch the original text. yaml-cpp only validates and finds node offsets.
 static QByteArray mergeYaml(QByteArray text, const Package& p) {
     validateManagedYaml(text);
     if (YAML::LoadAll(text.toStdString()).size() > 1)
@@ -728,7 +718,6 @@ static QByteArray mergeYaml(QByteArray text, const Package& p) {
                     fail("Âncora raiz não suportada");
                 ++offset;
             }
-            // Insert before a trailing `...` document-end marker.
             auto end = QRegularExpression("(?m)^\\.\\.\\.(?:[ \\t]*(?:#.*)?)\\r?$")
                            .match(QString::fromUtf8(text));
             if (!rootFlow && end.hasMatch())

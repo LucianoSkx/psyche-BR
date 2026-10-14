@@ -37,7 +37,7 @@ QString fetchTier(const QString& appId) {
     auto tier = doc.object().value("tier").toString().toLower();
     return tier.isEmpty() ? QString() : tier;
 }
-} // namespace
+}
 QVariantMap Proton::tiers(const QStringList& appIds, const QString& dataDir, int maxFetches) {
     const auto cachePath = dataDir + "/protondb.json";
     QJsonObject cache;

@@ -202,8 +202,6 @@ QString Backend::resolveDepotDownloader() const {
     return {};
 }
 
-// Só o fork patched aceita -manifestfile/-depotkeys; o oficial oficial ignora as
-// duas e avisa no stderr. O bundle grava qual dos dois está em uso.
 bool Backend::depotDownloaderAcceptsKeys(const QString& dll) const {
     QFile marker(QFileInfo(dll).absolutePath() + "/variant.txt");
     if (!marker.open(QIODevice::ReadOnly))
@@ -413,7 +411,7 @@ void Backend::runNextWorkshop(const QString& dotnet, const QString& dll) {
         const auto result = watcher->result();
         watcher->deleteLater();
         if (token != m_workshopToken)
-            return; // cancelado
+            return;
         if (!result.second.isEmpty()) {
             auto failed = m_workshopQueue[m_workshopIndex].toMap();
             failed["state"] = "erro";
@@ -428,8 +426,6 @@ void Backend::runNextWorkshop(const QString& dotnet, const QString& dll) {
         const auto appId = result.first.value("appId").toString();
         const auto manifestId = result.first.value("manifestId").toString();
         QStringList extra;
-        // Sem manifesto local e chave de depôt, a Steam recusa conteúdo de jogo
-        // comprado com 401 mesmo com conta anônima.
         const auto manifestPath = result.first.value("manifestPath").toString();
         const auto depotKey = result.first.value("depotKey").toString();
         const auto keysFile = dataDirWorkshop + "/workshop-keys.txt";
@@ -455,8 +451,6 @@ void Backend::runNextWorkshop(const QString& dotnet, const QString& dll) {
         auto process = new QProcess(this);
         m_workshopProcess = process;
         QStringList args;
-        // O ID colado vem da URL do Workshop, que é um PublishedFileId: -pubfile.
-        // -ugc espera o UGC id interno e devolve 404 com um PublishedFileId.
         args << dll << "-app" << appId << "-pubfile" << workshopId << "-dir" << dir << "-validate"
              << "-max-downloads" << "4" << extra;
         connect(process, &QProcess::readyReadStandardOutput, this, [this, process] {
@@ -492,12 +486,10 @@ void Backend::runNextWorkshop(const QString& dotnet, const QString& dll) {
                 m_workshopProcess = nullptr;
             process->deleteLater();
             if (token != m_workshopToken)
-                return; // cancelado
+                return;
             auto done = m_workshopQueue[m_workshopIndex].toMap();
             if (code == 0) {
                 done["state"] = "ok";
-                // Só dentro de uma biblioteca Steam o ACF faz sentido: sem ela a
-                // Steam nunca vai ler o arquivo.
                 if (!library.isEmpty()) {
                     const auto error = registerWorkshopItem(
                         library + "/steamapps/workshop/appworkshop_" + appId + ".acf",
@@ -520,8 +512,6 @@ void Backend::runNextWorkshop(const QString& dotnet, const QString& dll) {
         try {
             return qMakePair(Catalog(apiKey).fetchWorkshopInfo(workshopId, dataDirWorkshop), QString());
         } catch (const std::exception&) {
-            // A Hubcap cobre só parte do catálogo; sem o item nela, o AppID sai
-            // da página pública da Steam e o manifesto fica vazio no ACF.
             try {
                 return qMakePair(QVariantMap{{"appId", Catalog(apiKey).fetchSteamWorkshopAppId(workshopId)},
                                              {"manifestId", QString()},
@@ -559,7 +549,6 @@ void Backend::runNextDepot(const QString& dotnet, const QString& dll, const QStr
     QStringList args;
     const auto osArg = m_settings->downloadOS() == "mac" ? "osx" : m_settings->downloadOS();
     args << dll << "-app" << appId << "-depot" << entry.first << "-manifest" << entry.second;
-    // O oficial não conhece estas duas flags e avisa no stderr a cada depôt.
     if (depotDownloaderAcceptsKeys(dll))
         args << "-manifestfile" << manifestFile << "-depotkeys" << m_keysFile;
     args << "-max-downloads" << "4" << "-dir" << m_downloadDir << "-validate" << "-os" << osArg;
@@ -592,7 +581,7 @@ void Backend::runNextDepot(const QString& dotnet, const QString& dll, const QStr
             m_downloadProcess = nullptr;
         process->deleteLater();
         if (!m_downloading)
-            return; // cancelado: não encadeia nem sobrescreve o status
+            return;
         if (code != 0) {
             m_downloading = false;
             m_downloadStatus = QString("DepotDownloader saiu com código %1.").arg(code);

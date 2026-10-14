@@ -315,7 +315,6 @@ QByteArray removeEntries(QByteArray text, const QJsonObject& remove) {
             text.remove(span.first, span.second);
         auto updated = YAML::Load(text.toStdString());
         auto remaining = updated[pair.second.toStdString()];
-        // Empty block-style fields can stay bare. Flow maps need `[]` / `{}`.
         if (updated.Style() != YAML::EmitterStyle::Flow && remaining && !remaining.IsNull() &&
             remaining.size() == 0 && remaining.Style() == YAML::EmitterStyle::Flow) {
             const int start = remaining.Mark().pos;
@@ -339,7 +338,7 @@ QByteArray removeEntries(QByteArray text, const QJsonObject& remove) {
     entries(text);
     return text;
 }
-} // namespace
+}
 QString applyPackage(const Package& package, const QString& directory) {
     if (directory.trimmed().isEmpty())
         fail("Escolha um destino");
@@ -463,7 +462,6 @@ QString removeInstalledGame(const QString& directory, const QString& gameId) {
             remaining.append(game);
     if (selected.isEmpty())
         fail("O jogo não está mais na biblioteca; atualize e tente de novo");
-    // Recovered comments don't list depots/keys skipped as duplicates on older imports.
     bool recovered = false;
     QSet<QString> trackedApps;
     for (auto value : games) {

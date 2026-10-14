@@ -10,7 +10,6 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
-// Fontconfig 2.15 still scans host templates when FONTCONFIG_FILE is set.
 static bool initializeBundledFonts() {
     const auto path = qgetenv("PSYCHE_FONTCONFIG_FILE");
     if (path.isEmpty())

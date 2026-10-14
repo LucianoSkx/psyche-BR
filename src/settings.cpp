@@ -49,7 +49,7 @@ bool steamProcessRunning(const QString& procRoot) {
     }
     return false;
 }
-} // namespace
+}
 AppSettings::AppSettings(QObject* parent)
     : AppSettings(QDir::homePath(),
                   envPath("PSYCHE_DATA_DIR", QDir::homePath() + "/.local/share/psyche"),
@@ -90,7 +90,6 @@ AppSettings::AppSettings(QString home,
 void AppSettings::importAssellaKey() {
     if (!m_sessionKey.isEmpty() || environmentKey() || m_unreadable)
         return;
-    // ASSella stores this key as QSettings("Tachibana Labs", "ACCELA").
     QStringList candidates{m_config + "/Tachibana Labs/ACCELA.conf",
                            m_home + "/.config/Tachibana Labs/ACCELA.conf"};
     candidates.removeDuplicates();
@@ -159,7 +158,6 @@ void AppSettings::detectPaths() {
                     "config.yaml");
     auto saved = m_values.value("destination").toString();
     appendDirectory(m_destinations, saved, "Diretório selecionado");
-    // Keep a saved destination even if that path is currently missing.
     m_destination = saved.isEmpty() ? (m_destinations.size() == 1
                                            ? m_destinations.first().toMap()["path"].toString()
                                            : QString())
@@ -198,8 +196,6 @@ void AppSettings::detectPaths() {
             }
         }
     }
-    // Steam /proc maps can point at extra libraries. Read this user's steam
-    // processes only; don't stop them or touch their environment.
     if (!m_procRoot.isEmpty()) {
         const QRegularExpression mapping(R"(^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+(/.*)$)");
         for (const auto& entry :
@@ -301,7 +297,6 @@ bool AppSettings::persist() {
                 return reportError("Não foi possível preservar preferências inválidas.");
         }
     }
-    // Merge dirty keys only so another instance's key/history isn't clobbered.
     for (const auto& key : m_dirty) {
         if (m_values.contains(key))
             saved[key] = m_values[key];

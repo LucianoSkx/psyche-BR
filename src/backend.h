@@ -104,7 +104,6 @@ public:
     bool workshopBusy() const { return m_workshopBusy; }
     QString workshopStatus() const { return m_workshopStatus; }
     int workshopPercent() const { return m_workshopPercent; }
-    // Uma entrada por item: {"id", "state": "pendente"|"ok"|"erro", "error"}.
     QVariantList workshopQueue() const { return m_workshopQueue; }
     QVariantList games() const { return m_games; }
     QString networkIssue() const { return m_networkIssue; }
@@ -125,8 +124,6 @@ public:
         m_workshopStatus.clear();
         emit changed();
     }
-    // Separa os depôts com manifesto (entram na fila) dos sem manifesto (só
-    // aviso no status final). `wanted` vazio = todos os depôts de `keys`.
     static QPair<QList<QPair<QString, QString>>, QStringList>
     splitDownloadQueue(const QMap<QString, QString>& keys, const QSet<QString>& wanted,
                        const QMap<QString, QString>& manifests);
@@ -142,7 +139,6 @@ private:
     void acceptPackage(const Package& package, const QString& error);
     void refreshHubcapOnAuthError(const QString& error);
     void runNextDepot(const QString& dotnet, const QString& dll, const QString& appId);
-    // dotnet e DepotDownloader compartilhados por jogo e Workshop.
     QString resolveDotnet() const;
     QString resolveDepotDownloader() const;
     bool depotDownloaderAcceptsKeys(const QString& dll) const;

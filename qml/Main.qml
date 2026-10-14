@@ -257,7 +257,7 @@ ApplicationWindow {
             padding: 16; background: Item {}
             Rectangle {
                 anchors.fill: parent
-                opacity: 0.06
+                opacity: 0.18
                 visible: tabs.currentIndex === 0
                 gradient: Gradient {
                     GradientStop { position: 0.0; color: "#4a5568" }
@@ -582,7 +582,6 @@ ApplicationWindow {
                             placeholderText: "https://steamcommunity.com/sharedfiles/filedetails/?id=123456789"
                             background: Rectangle { color: window.canvas; radius: 4; border.color: window.border }
                             text: backend.workshopInput
-                            // TextArea só ganhou textEdited no Qt 6.9; textChanged existe em todos.
                             onTextChanged: backend.workshopInput = text
                             enabled: !backend.workshopBusy
                             Accessible.name: "IDs de mods do Workshop"

@@ -22,7 +22,7 @@ bool validId(const QString& id) {
 bool validSize(const QSize& size) {
     return size.width() > 0 && size.height() > 0 && qint64(size.width()) * size.height() <= 8000000;
 }
-} // namespace
+}
 Artwork::Artwork(QString directory, QObject* parent, QUrl api, QUrl cdn)
     : QObject(parent), m_directory(directory + "/cache/covers"), m_api(api), m_cdn(cdn) {}
 void Artwork::request(QString id) {
@@ -102,7 +102,6 @@ void Artwork::resolve(const QString& id) {
                 break;
             }
         }
-        // Relative header paths only — no hosts or `..` from the API.
         if (!QRegularExpression("^(?:[a-zA-Z0-9_-]+/)?header(?:_[a-zA-Z_]+)?\\.jpg$")
                  .match(asset)
                  .hasMatch())

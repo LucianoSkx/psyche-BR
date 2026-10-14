@@ -7,7 +7,6 @@
 #include <QVariantMap>
 #include <functional>
 
-// Steam covers go through a separate QNetworkAccessManager, not the Hubcap client.
 class Artwork : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantMap images READ images NOTIFY changed)

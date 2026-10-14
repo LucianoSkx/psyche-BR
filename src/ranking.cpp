@@ -49,7 +49,7 @@ int score(const QString& name, const QString& query) {
         result -= 10000;
     return result;
 }
-} // namespace
+}
 QVariantList Ranking::rankGames(const QVariantList& games, const QString& query) {
     QList<QPair<int, int>> indexScore;
     for (int i = 0; i < games.size(); ++i)
