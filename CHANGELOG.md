@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.4 — 2026-10-14
+
+- Fundo com gradiente animado e versão no rodapé e na tela inicial.
+- Remove comentários do código do app (`src/`, `qml/`).
+
 ## 1.3.3 — 2026-10-13
 
 - Corrige versão e tag para v1.3.3 (bundle.py com qt_qml/qt_plugins). Botão `Gerar Chave` nas Configurações.
