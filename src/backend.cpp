@@ -16,6 +16,9 @@
 #include <QStandardPaths>
 #include <QStringList>
 #include <QtConcurrent>
+
+#include <QSet>
+#include <algorithm>
 void Backend::begin(QString activity, QString status) {
     m_busy = true;
     m_activity = activity;
@@ -49,6 +52,8 @@ void Backend::acceptPackage(const Package& package, const QString& error) {
     m_platforms.clear();
     m_proton.clear();
     m_depotDetails.clear();
+    m_depotRaw.clear();
+    m_depotLanguages.clear();
     if (qEnvironmentVariableIsSet("PSYCHE_OFFLINE"))
         return;
     const auto pid = m_appId;
@@ -63,14 +68,10 @@ void Backend::acceptPackage(const Package& package, const QString& error) {
     w2->setFuture(QtConcurrent::run([pid, dataDir2] { return Proton::tiers({pid}, dataDir2); }));
     auto w3 = new QFutureWatcher<QVariantList>(this);
     connect(w3, &QFutureWatcherBase::finished, this, [this, w3] {
-        m_depotDetails = w3->result();
+        m_depotRaw = w3->result();
         w3->deleteLater();
-        QSet<QString> platforms;
-        for (const auto& entry : m_depotDetails)
-            for (const auto& os : entry.toMap().value("oslist").toList())
-                platforms.insert(os.toString());
-        m_platforms = platforms.values();
-        emit changed();
+        m_depotLanguage = QStringLiteral("english");
+        reorganizeDepots();
     });
     w3->setFuture(QtConcurrent::run([pid] {
         QVariantList mapped;
@@ -78,6 +79,24 @@ void Backend::acceptPackage(const Package& package, const QString& error) {
             mapped.append(entry);
         return mapped;
     }));
+}
+void Backend::setDepotLanguage(const QString& language) {
+    if (m_depotLanguage == language)
+        return;
+    m_depotLanguage = language;
+    reorganizeDepots();
+}
+void Backend::reorganizeDepots() {
+    QVariantList organized;
+    QSet<QString> languages;
+    for (const auto& entry : m_depotRaw)
+        if (const auto language = entry.toMap().value("language").toString(); !language.isEmpty())
+            languages.insert(language);
+    m_depotLanguages = languages.values();
+    std::sort(m_depotLanguages.begin(), m_depotLanguages.end());
+    organized = Catalog::organizeDepots(m_depotRaw, m_settings->downloadOS(), m_depotLanguage);
+    m_depotDetails = organized;
+    emit changed();
 }
 void Backend::inspect(QUrl file) {
     if (m_busy)

@@ -487,15 +487,26 @@ ApplicationWindow {
                             visible: backend.depotDetails.length > 0; Layout.fillWidth: true; Layout.preferredHeight: backend.depotDetails.length > 0 ? 280 : 0
                             ListView {
                                 id: depotView; model: backend.depotDetails; clip: true; spacing: 4; width: parent.width
+                                section.property: "group"
+                                section.delegate: Label {
+                                    textFormat: Text.PlainText
+                                    text: section
+                                    color: window.muted; font.pixelSize: 11; font.bold: true
+                                    topPadding: 8; bottomPadding: 2
+                                    Accessible.name: "Grupo " + section
+                                }
                                 delegate: RowLayout {
                                     width: depotView.width
                                     property string depot: modelData.depot
                                     property bool selected: sel.checked
-                                    Tick { id: sel; checked: true; text: modelData.name && modelData.name.length > 0 ? modelData.name + " (" + modelData.depot + ")" : modelData.depot; Accessible.name: "Baixar depot " + modelData.depot }
+                                    Tick { id: sel; checked: modelData.checked; text: modelData.name && modelData.name.length > 0 ? modelData.name + " (" + modelData.depot + ")" : modelData.depot; Accessible.name: "Baixar depot " + modelData.depot }
                                     Item { Layout.preferredWidth: 8 }
                                     Label {
                                         textFormat: Text.PlainText
-                                        text: modelData.oslist && modelData.oslist.length > 0 ? modelData.oslist.map(window.formatOS).join(", ") : "—"
+                                        text: {
+                                            const os = modelData.oslist && modelData.oslist.length > 0 ? modelData.oslist.map(window.formatOS).join(", ") : "—"
+                                            return modelData.osarch && modelData.osarch.length > 0 ? os + " · " + modelData.osarch + "-bit" : os
+                                        }
                                         color: window.muted; font.pixelSize: 11; Layout.fillWidth: true; elide: Text.ElideRight
                                     }
                                 }
@@ -512,8 +523,21 @@ ApplicationWindow {
                                 onActivated: {
                                     const values = backend.platforms.length > 0 ? backend.platforms : ["linux", "windows", "mac"]
                                     preferences.setDownloadOS(values[currentIndex])
+                                    backend.reorganizeDepots()
                                 }
                                 Accessible.name: "Sistema do download"
+                            }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 10
+                            visible: backend.depotLanguages.length > 1
+                            Label { textFormat: Text.PlainText; text: "Idioma"; color: window.ink; font.pixelSize: 13 }
+                            ChoiceBox {
+                                id: langBox; Layout.preferredWidth: 160
+                                model: backend.depotLanguages.map(function (lang) { return lang.charAt(0).toUpperCase() + lang.slice(1) })
+                                currentIndex: Math.max(0, backend.depotLanguages.indexOf(backend.depotLanguage))
+                                onActivated: backend.setDepotLanguage(backend.depotLanguages[currentIndex])
+                                Accessible.name: "Idioma dos depots"
                             }
                         }
                         RowLayout {

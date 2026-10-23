@@ -4,6 +4,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMap>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <memory>
@@ -315,6 +316,52 @@ int main(int argc, char** argv) {
         responses.append({503, "unavailable"});
         PSYCHE_CHECK(!Catalog::resolveGameName(offline, steam));
         PSYCHE_CHECK(offline.labels["2770330"] == "AppID 2770330");
+
+        // organização dos depots: grupos Base/DLC/Idiomas/Bônus e padrões.
+        {
+            const QVariantList depots{
+                QVariantMap{{"depot", "1147564"}, {"oslist", QVariantList{}}, {"language", ""},
+                            {"osarch", ""}, {"dlcappid", ""}, {"name", ""}},
+                QVariantMap{{"depot", "1147566"}, {"oslist", QVariantList{"windows"}},
+                            {"language", ""}, {"osarch", "32"}, {"dlcappid", ""}, {"name", ""}},
+                QVariantMap{{"depot", "1147567"}, {"oslist", QVariantList{"windows"}},
+                            {"language", ""}, {"osarch", "64"}, {"dlcappid", ""}, {"name", ""}},
+                QVariantMap{{"depot", "1147568"}, {"oslist", QVariantList{"mac"}},
+                            {"language", ""}, {"osarch", ""}, {"dlcappid", ""}, {"name", ""}},
+                QVariantMap{{"depot", "2512790"}, {"oslist", QVariantList{"windows"}},
+                            {"language", ""}, {"osarch", ""}, {"dlcappid", "2512790"},
+                            {"name", "Skul: Mythology Pack"}},
+                QVariantMap{{"depot", "910001"}, {"oslist", QVariantList{"windows"}},
+                            {"language", "spanish"}, {"osarch", ""}, {"dlcappid", ""}, {"name", ""}},
+                QVariantMap{{"depot", "910002"}, {"oslist", QVariantList{"windows"}},
+                            {"language", ""}, {"osarch", ""}, {"dlcappid", ""},
+                            {"name", "Skul Soundtrack"}}};
+            const auto out = Catalog::organizeDepots(depots, "windows", "english");
+            QVariantList groups;
+            for (const auto& entry : out) {
+                const auto group = entry.toMap()["group"].toString();
+                if (groups.isEmpty() || groups.last().toString() != group)
+                    groups.append(group);
+            }
+            PSYCHE_CHECK(groups.size() == 4);
+            PSYCHE_CHECK(groups.first().toString() == "Base" && groups[1].toString() == "DLC" &&
+                         groups[2].toString() == "Idiomas" && groups.last().toString() == "Bônus");
+            QMap<QString, QVariantMap> byDepot;
+            for (const auto& entry : out)
+                byDepot[entry.toMap()["depot"].toString()] = entry.toMap();
+            PSYCHE_CHECK(byDepot.contains("1147564") && byDepot["1147564"].value("checked").toBool());
+            PSYCHE_CHECK(!byDepot["1147566"].value("checked").toBool());
+            PSYCHE_CHECK(byDepot["1147567"].value("checked").toBool());
+            PSYCHE_CHECK(!byDepot["1147568"].value("checked").toBool());
+            PSYCHE_CHECK(byDepot["2512790"].value("group").toString() == "DLC" &&
+                         byDepot["2512790"].value("checked").toBool());
+            PSYCHE_CHECK(!byDepot["910001"].value("checked").toBool());
+            PSYCHE_CHECK(byDepot["910002"].value("group").toString() == "Bônus" &&
+                         !byDepot["910002"].value("checked").toBool());
+            PSYCHE_CHECK(Catalog::organizeDepots(depots, "linux", "english")
+                             .size() == depots.size());
+        }
+
         std::cout << "Catalog checks passed with a local HTTP fixture.\n";
         return 0;
     } catch (const std::exception& e) {

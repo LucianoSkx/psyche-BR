@@ -372,7 +372,8 @@ QList<QVariantMap> Catalog::depotDetails(const QString& appId) const {
             if (!ok || it.key() == appId)
                 continue;
             const auto depot = it.value().toObject();
-            const auto oslist = depot.value("config").toObject().value("oslist").toString();
+            const auto config = depot.value("config").toObject();
+            const auto oslist = config.value("oslist").toString();
             QStringList normalized;
             for (const auto& raw : oslist.split(',', Qt::SkipEmptyParts)) {
                 auto value = raw.trimmed().toLower();
@@ -385,12 +386,76 @@ QList<QVariantMap> Catalog::depotDetails(const QString& appId) const {
                 result.append({{"depot", it.key()},
                                {"oslist", normalized},
                                {"name", depot.value("name").toString()},
+                               {"language", config["language"].toString()},
+                               {"osarch", config["osarch"].toString()},
+                               {"dlcappid", depot["dlcappid"].toVariant().toString()},
                                {"dlc", depot.contains("dlcappid") && !depot.value("dlcappid").isNull()}});
         }
         return result;
     } catch (const std::exception&) {
         return {};
     }
+}
+
+QVariantList Catalog::organizeDepots(const QVariantList& depots, const QString& system,
+                                     const QString& language) {
+    static const QStringList kBonus = {
+        "soundtrack", " ost", "ost ",  "(ost)",  "[ost]", "original soundtrack",
+        "wallpaper",  "artbook",       "art book",      "manual",     "guide",
+        "comic",      "novel",         "goodies",       "avatar",     "poster",
+        "dedicated server"};
+    auto matches = [](const QVariantMap& depot, const QString& os) {
+        const auto list = depot["oslist"].toList();
+        for (const auto& value : list)
+            if (value.toString() == os)
+                return true;
+        return list.isEmpty();
+    };
+    bool has64 = false;
+    for (const auto& depot : depots) {
+        const auto entry = depot.toMap();
+        if (entry["osarch"].toString() == "64" && matches(entry, system)) {
+            has64 = true;
+            break;
+        }
+    }
+    QVariantList base, dlc, idiomas, bonus;
+    for (const auto& depot : depots) {
+        QVariantMap entry = depot.toMap();
+        const auto text = (entry["name"].toString() + " " + entry["depot"].toString()).toLower();
+        bool isBonus = false;
+        for (const auto& keyword : kBonus)
+            if (text.contains(keyword)) {
+                isBonus = true;
+                break;
+            }
+        if (!entry["dlcappid"].toString().isEmpty())
+            entry["group"] = "DLC";
+        else if (!entry["language"].toString().isEmpty())
+            entry["group"] = "Idiomas";
+        else if (isBonus)
+            entry["group"] = "B\u00f4nus";
+        else
+            entry["group"] = "Base";
+        const bool langOk =
+            entry["language"].toString().isEmpty() || entry["language"].toString() == language;
+        entry["checked"] = matches(entry, system) && langOk &&
+                           !(has64 && entry["osarch"].toString() == "32") &&
+                           entry["group"].toString() != "B\u00f4nus";
+        const auto group = entry["group"].toString();
+        if (group == "Base")
+            base.append(entry);
+        else if (group == "DLC")
+            dlc.append(entry);
+        else if (group == "Idiomas")
+            idiomas.append(entry);
+        else
+            bonus.append(entry);
+    }
+    QVariantList out;
+    for (const auto& group : {base, dlc, idiomas, bonus})
+        out.append(group);
+    return out;
 }
 void Catalog::promoteKeyedApps(Package& package, QUrl base) {
     if (!base.isValid() || base.isEmpty())

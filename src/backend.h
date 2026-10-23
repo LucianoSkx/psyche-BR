@@ -36,7 +36,8 @@ class Backend : public QObject {
     Q_PROPERTY(QStringList platforms READ platforms NOTIFY changed)
     Q_PROPERTY(QString proton READ proton NOTIFY changed)
     Q_PROPERTY(QVariantList depotDetails READ depotDetails NOTIFY changed)
-    Q_PROPERTY(QString workshopInput READ workshopInput WRITE setWorkshopInput NOTIFY changed)
+    Q_PROPERTY(QStringList depotLanguages READ depotLanguages NOTIFY changed)
+    Q_PROPERTY(QString depotLanguage READ depotLanguage NOTIFY changed)    Q_PROPERTY(QString workshopInput READ workshopInput WRITE setWorkshopInput NOTIFY changed)
     Q_PROPERTY(QStringList workshopIds READ workshopIds NOTIFY changed)
     Q_PROPERTY(bool workshopBusy READ workshopBusy NOTIFY changed)
     Q_PROPERTY(QString workshopStatus READ workshopStatus NOTIFY changed)
@@ -92,6 +93,10 @@ public:
     QStringList platforms() const { return m_platforms; }
     QString proton() const { return m_proton; }
     QVariantList depotDetails() const { return m_depotDetails; }
+    QStringList depotLanguages() const { return m_depotLanguages; }
+    QString depotLanguage() const { return m_depotLanguage; }
+    Q_INVOKABLE void setDepotLanguage(const QString& language);
+    Q_INVOKABLE void reorganizeDepots();
     QString workshopInput() const { return m_workshopInput; }
     void setWorkshopInput(const QString& text) {
         if (text == m_workshopInput)
@@ -163,6 +168,9 @@ private:
     QStringList m_platforms;
     QString m_proton;
     QVariantList m_depotDetails;
+    QVariantList m_depotRaw;
+    QStringList m_depotLanguages;
+    QString m_depotLanguage = QStringLiteral("english");
     int m_downloadPercent = 0;
     int m_downloadToken = 0;
     QString m_downloadStatus, m_downloadDir, m_downloadSteamApps;

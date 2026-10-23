@@ -19,6 +19,16 @@ public:
     Package fetch(const QString& appId, const QString& content = "full") const;
     QStringList supportedPlatforms(const QString& appId) const;
     QList<QVariantMap> depotDetails(const QString& appId) const;
+
+    /**
+     * Agrupa os depotDetails para a lista do card (ASSella): Base, DLC,
+     * Idiomas e Bônus (trilha/artbook/manuais). Cada item ganha `group` e
+     * `checked`: marca o que baixaria por padrão — depôts compartilhados ou do
+     * `system` (32-bit sai quando existe 64-bit do mesmo sistema), idioma
+     * escolhido; bônus desmarcado. Ordem estável dentro de cada grupo.
+     */
+    static QVariantList organizeDepots(const QVariantList& depots, const QString& system,
+                                       const QString& language);
     QMap<QString, QString> fetchManifests(const QString& appId, const QString& destDir) const;
     QVariantMap fetchWorkshopInfo(const QString& workshopId, const QString& destDir) const;
     QString fetchSteamWorkshopAppId(const QString& workshopId) const;
