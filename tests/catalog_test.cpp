@@ -317,15 +317,77 @@ int main(int argc, char** argv) {
         PSYCHE_CHECK(!Catalog::resolveGameName(offline, steam));
         PSYCHE_CHECK(offline.labels["2770330"] == "AppID 2770330");
 
-        // organização dos depots: grupos Base/DLC/Idiomas/Bônus e padrões.
+        // depotDetails: depots without manifests ({}) are tolerated, manifest size.
+        {
+            const QJsonObject depot3{
+                {"manifests",
+                 QJsonObject{{"beta", QJsonObject{{"size", "100"}, {"gid", "9"}}}}},
+                {"config", QJsonObject{{"oslist", "windows"}}}};
+            const QJsonObject appdata{
+                {"depots",
+                 QJsonObject{{"1", QJsonObject{}},
+                             {"2", QJsonObject{{"manifests", QJsonObject{}}, {"dlcappid", "88"}}},
+                             {"3", depot3},
+                             {"5", QJsonObject{{"dlcappid", "99"}}}}}};
+            const auto body =
+                QJsonDocument(QJsonObject{{"status", "success"}, {"data", QJsonObject{{"77", appdata}}}})
+                    .toJson(QJsonDocument::Compact);
+            responses.append({200, body});
+            const auto details = catalog.depotDetails("77");
+            PSYCHE_CHECK(requests.last().contains("/v1/info/77"));
+            PSYCHE_CHECK(details.size() == 4);
+            double size77 = 0;
+            for (const auto& entry : details)
+                if (entry["depot"].toString() == "3")
+                    size77 = entry["size"].toDouble();
+            PSYCHE_CHECK(size77 == 100.0);
+            // DLC names resolved in one appdetails call; plain depots keep empty name.
+            responses.append(
+                {200, R"({"88":{"success":true,"data":{"name":"Skul: Mythology Pack"}}})"});
+            // Delisted DLC: store refuses, steamcmd /v1/info still exposes common.name.
+            responses.append({200, R"({"99":{"success":false}})"});
+            responses.append({200, R"({"status":"success",
+                "data":{"99":{"common":{"name":"Kane and Lynch 2: Radio Tower DLC"}}}})"});
+            const auto enriched = Catalog::enrichDlcNames(
+                QVariantList(details.begin(), details.end()), steamcmd, steamcmd);
+            QVariantMap dlc77, dlc99;
+            for (const auto& entry : enriched)
+                if (entry.toMap()["dlcappid"].toString() == "88")
+                    dlc77 = entry.toMap();
+                else if (entry.toMap()["dlcappid"].toString() == "99")
+                    dlc99 = entry.toMap();
+            PSYCHE_CHECK(dlc77["name"].toString() == "Skul: Mythology Pack");
+            PSYCHE_CHECK(dlc99["name"].toString() == "Kane and Lynch 2: Radio Tower DLC");
+            // depots.ini overlay: appdetails failure falls back to the community names.
+            responses.append({200, R"({"88":{"success":false}})"});
+            const auto ini = tmp.path() + "/depots.ini";
+            {
+                QFile out(ini);
+                PSYCHE_CHECK(out.open(QIODevice::WriteOnly));
+                out.write("[depots]\n2 = Mythology Pack Depot\n; comment\nx = skipped\n1 =  \n");
+            }
+            const auto parsed = Catalog::parseDepotsIni(ini);
+            PSYCHE_CHECK(parsed.size() == 1 && parsed.value("2") == "Mythology Pack Depot");
+            const auto overlaid = Catalog::enrichDlcNames(
+                QVariantList(details.begin(), details.end()), steamcmd, steamcmd,
+                Catalog::parseDepotsIni(ini));
+            QVariantMap dlc88;
+            for (const auto& entry : overlaid)
+                if (entry.toMap()["dlcappid"].toString() == "88")
+                    dlc88 = entry.toMap();
+            PSYCHE_CHECK(dlc88["name"].toString() == "Mythology Pack Depot");
+            PSYCHE_CHECK(requests.last().contains("/v1/info/99"));
+        }
+        // depot organization: groups, hidden rows and defaults.
         {
             const QVariantList depots{
                 QVariantMap{{"depot", "1147564"}, {"oslist", QVariantList{}}, {"language", ""},
-                            {"osarch", ""}, {"dlcappid", ""}, {"name", ""}},
+                            {"osarch", ""}, {"dlcappid", ""}, {"name", ""}, {"size", 2006488230.0}},
                 QVariantMap{{"depot", "1147566"}, {"oslist", QVariantList{"windows"}},
                             {"language", ""}, {"osarch", "32"}, {"dlcappid", ""}, {"name", ""}},
                 QVariantMap{{"depot", "1147567"}, {"oslist", QVariantList{"windows"}},
-                            {"language", ""}, {"osarch", "64"}, {"dlcappid", ""}, {"name", ""}},
+                            {"language", ""}, {"osarch", "64"}, {"dlcappid", ""}, {"name", ""},
+                            {"size", 1850000000.0}},
                 QVariantMap{{"depot", "1147568"}, {"oslist", QVariantList{"mac"}},
                             {"language", ""}, {"osarch", ""}, {"dlcappid", ""}, {"name", ""}},
                 QVariantMap{{"depot", "2512790"}, {"oslist", QVariantList{"windows"}},
@@ -336,30 +398,46 @@ int main(int argc, char** argv) {
                 QVariantMap{{"depot", "910002"}, {"oslist", QVariantList{"windows"}},
                             {"language", ""}, {"osarch", ""}, {"dlcappid", ""},
                             {"name", "Skul Soundtrack"}}};
-            const auto out = Catalog::organizeDepots(depots, "windows", "english");
+            auto out = Catalog::organizeDepots(depots, "windows", "english");
+            QStringList visibleDepots;
+            for (const auto& entry : out)
+                visibleDepots.append(entry.toMap()["depot"].toString());
+            // macOS, bonus and shared rows when a dedicated depot exists: hidden.
+            PSYCHE_CHECK(visibleDepots == QStringList{"1147566", "1147567", "2512790", "910001"});
             QVariantList groups;
             for (const auto& entry : out) {
                 const auto group = entry.toMap()["group"].toString();
                 if (groups.isEmpty() || groups.last().toString() != group)
                     groups.append(group);
             }
-            PSYCHE_CHECK(groups.size() == 4);
-            PSYCHE_CHECK(groups.first().toString() == "Base" && groups[1].toString() == "DLC" &&
-                         groups[2].toString() == "Idiomas" && groups.last().toString() == "Bônus");
+            PSYCHE_CHECK(groups.size() == 3);
+            PSYCHE_CHECK(groups[0].toString() == "Base" && groups[1].toString() == "DLC" &&
+                         groups[2].toString() == "Idiomas");
             QMap<QString, QVariantMap> byDepot;
             for (const auto& entry : out)
                 byDepot[entry.toMap()["depot"].toString()] = entry.toMap();
-            PSYCHE_CHECK(byDepot.contains("1147564") && byDepot["1147564"].value("checked").toBool());
             PSYCHE_CHECK(!byDepot["1147566"].value("checked").toBool());
             PSYCHE_CHECK(byDepot["1147567"].value("checked").toBool());
-            PSYCHE_CHECK(!byDepot["1147568"].value("checked").toBool());
             PSYCHE_CHECK(byDepot["2512790"].value("group").toString() == "DLC" &&
                          byDepot["2512790"].value("checked").toBool());
             PSYCHE_CHECK(!byDepot["910001"].value("checked").toBool());
-            PSYCHE_CHECK(byDepot["910002"].value("group").toString() == "Bônus" &&
-                         !byDepot["910002"].value("checked").toBool());
-            PSYCHE_CHECK(Catalog::organizeDepots(depots, "linux", "english")
-                             .size() == depots.size());
+            PSYCHE_CHECK(byDepot["1147567"].value("tags").toString() == "[x64]" &&
+                         byDepot["1147566"].value("tags").toString() == "[x86]");
+            PSYCHE_CHECK(byDepot["2512790"].value("tags").toString().contains("[DLC]"));
+            PSYCHE_CHECK(byDepot["910001"].value("tags").toString() == "[ES]");
+            PSYCHE_CHECK(byDepot["1147567"].value("size").toDouble() == 1850000000.0);
+            // Sem depot dedicado do sistema, o compartilhado volta a aparecer.
+            out = Catalog::organizeDepots(depots, "linux", "english");
+            bool linuxShared = false;
+            for (const auto& entry : out)
+                if (const auto map = entry.toMap(); map["depot"].toString() == "1147564")
+                    linuxShared = map["checked"].toBool();
+            PSYCHE_CHECK(linuxShared);
+            // …and keep downloading via sharedBaseDepots.
+            PSYCHE_CHECK(
+                Catalog::sharedBaseDepots(depots, "windows") == QStringList{"1147564"});
+            PSYCHE_CHECK(Catalog::sharedBaseDepots(depots, "mac") == QStringList{"1147564"});
+            PSYCHE_CHECK(Catalog::sharedBaseDepots(depots, "linux").isEmpty());
         }
 
         std::cout << "Catalog checks passed with a local HTTP fixture.\n";

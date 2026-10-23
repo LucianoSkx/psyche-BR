@@ -10,10 +10,11 @@ QString registerWorkshopItem(const QString& acfPath,
                              const QString& modDir);
 
 /**
- * Grava `steamapps/appmanifest_<appid>.acf` e copia os manifestos usados para
- * `steamapps/depotcache/`, para a Steam listar o jogo como instalado.
- * `steamAppsDir` vazio devolve erro: sem biblioteca Steam não há onde registrar.
- * `windowsDepots` marca o ACF como instalação Linux de depôts Windows (Proton).
+ * Writes `steamapps/appmanifest_<appid>.acf` and copies the manifests used to
+ * `steamapps/depotcache/`, so Steam lists the game as installed. An empty
+ * `steamAppsDir` is an error: without a Steam library there is nowhere to
+ * register. `windowsDepots` marks the ACF as a Linux install of Windows
+ * depots (Proton).
  */
 QString registerInstalledGame(const QString& steamAppsDir,
                               const QString& appId,

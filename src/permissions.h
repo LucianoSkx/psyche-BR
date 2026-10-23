@@ -2,9 +2,9 @@
 #include <QString>
 
 /**
- * Marca como executáveis os binários Linux dentro de `dir` (ELF, shebang e
- * extensões conhecidas). O DepotDownloader grava tudo como 0644 e a Steam não
- * guarda permissão no manifesto, então o jogo não abre sem isso.
- * Devolve quantos arquivos mudaram.
+ * Marks the Linux binaries inside `dir` as executable (ELF, shebang and known
+ * extensions). DepotDownloader writes everything as 0644 and Steam does not
+ * keep permissions in the manifest, so the game does not start without this.
+ * Returns how many files changed.
  */
 int makeExecutable(const QString& dir);

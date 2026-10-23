@@ -63,7 +63,7 @@ int blockEnd(const QString& text, int open) {
     return -1;
 }
 
-// VDF aceita chaves sem aspas; config.vdf as usa. Espaços/tabs separam.
+// VDF accepts keys without quotes; config.vdf uses them. Spaces/tabs separate.
 QString mappedTool(const QString& block, const QString& appId) {
     const auto at = block.indexOf(QLatin1Char('"') + appId + QLatin1Char('"'));
     if (at < 0)
@@ -213,7 +213,7 @@ QString Proton::forceCompatTool(const QString& appId, const QString& steamDir, b
 
 QVariantList Proton::installedTools(const QString& steamDir, const QStringList& libraries,
                                    const QString& appId) {
-    // name -> label; a primeira fonte vence para não duplicar nomes.
+    // name -> label; the first source wins so names are not duplicated.
     QHash<QString, QString> labels;
 
     const auto dot = steamDir + "/compatibilitytools.d";

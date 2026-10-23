@@ -374,6 +374,12 @@ QList<QVariantMap> Catalog::depotDetails(const QString& appId) const {
             const auto depot = it.value().toObject();
             const auto config = depot.value("config").toObject();
             const auto oslist = config.value("oslist").toString();
+            const auto manifests = depot.value("manifests").toObject();
+            const auto manifest = manifests.contains("public")
+                                      ? manifests.value("public").toObject()
+                                      : manifests.isEmpty()
+                                            ? QJsonObject()
+                                            : manifests.begin().value().toObject();
             QStringList normalized;
             for (const auto& raw : oslist.split(',', Qt::SkipEmptyParts)) {
                 auto value = raw.trimmed().toLower();
@@ -389,7 +395,8 @@ QList<QVariantMap> Catalog::depotDetails(const QString& appId) const {
                                {"language", config["language"].toString()},
                                {"osarch", config["osarch"].toString()},
                                {"dlcappid", depot["dlcappid"].toVariant().toString()},
-                               {"dlc", depot.contains("dlcappid") && !depot.value("dlcappid").isNull()}});
+                               {"dlc", depot.contains("dlcappid") && !depot.value("dlcappid").isNull()},
+                               {"size", manifest.value("size").toVariant().toDouble()}});
         }
         return result;
     } catch (const std::exception&) {
@@ -420,6 +427,7 @@ QVariantList Catalog::organizeDepots(const QVariantList& depots, const QString& 
         }
     }
     QVariantList base, dlc, idiomas, bonus;
+    QList<QVariantMap> entries;
     for (const auto& depot : depots) {
         QVariantMap entry = depot.toMap();
         const auto text = (entry["name"].toString() + " " + entry["depot"].toString()).toLower();
@@ -437,11 +445,63 @@ QVariantList Catalog::organizeDepots(const QVariantList& depots, const QString& 
             entry["group"] = "B\u00f4nus";
         else
             entry["group"] = "Base";
+        QStringList tags;
+        if (!entry["dlcappid"].toString().isEmpty())
+            tags.append("[DLC]");
+        if (entry["osarch"].toString() == "64")
+            tags.append("[x64]");
+        else if (entry["osarch"].toString() == "32")
+            tags.append("[x86]");
+        if (const auto language = entry["language"].toString(); !language.isEmpty()) {
+            static const QMap<QString, QString> kLangCode = {
+                {"arabic", "AR"},   {"bulgarian", "BG"}, {"czech", "CS"},
+                {"danish", "DA"},   {"dutch", "NL"},     {"english", "EN"},
+                {"french", "FR"},   {"german", "DE"},    {"greek", "GR"},
+                {"hungarian", "HU"}, {"italian", "IT"},  {"japanese", "JP"},
+                {"koreana", "KO"},  {"latam", "LA"},     {"norwegian", "NO"},
+                {"polish", "PL"},   {"portuguese", "PT"}, {"brazilian", "BR"},
+                {"romanian", "RO"}, {"russian", "RU"},   {"schinese", "SC"},
+                {"spanish", "ES"},  {"swedish", "SV"},   {"thai", "TH"},
+                {"tchinese", "TC"}, {"turkish", "TR"},   {"ukrainian", "UA"},
+                {"vietnamese", "VI"}};
+           tags.append("[" +
+                        (kLangCode.contains(language) ? kLangCode.value(language)
+                                                      : language.toUpper().left(2)) +
+                        "]");
+        }
+        entry["tags"] = tags.join(" ");
         const bool langOk =
             entry["language"].toString().isEmpty() || entry["language"].toString() == language;
         entry["checked"] = matches(entry, system) && langOk &&
                            !(has64 && entry["osarch"].toString() == "32") &&
                            entry["group"].toString() != "B\u00f4nus";
+        entries.append(entry);
+    }
+    // ASSella parity: bonus rows out; macOS/Android out unless they are the
+    // target system; shared out when the system has a dedicated depot
+    // (they still download — sharedBaseDepots).
+    bool hasDedicated = false;
+    for (const auto& entry : entries) {
+        if (entry["group"].toString() != "Base" || !matches(entry, system))
+            continue;
+        const auto oslist = entry["oslist"].toList();
+        if (!oslist.isEmpty()) {
+            hasDedicated = true;
+            break;
+        }
+    }
+    for (const auto& entry : entries) {
+        const auto oslist = entry["oslist"].toList();
+        bool onlyOtherMobile = !oslist.isEmpty();
+        for (const auto& os : oslist)
+            if (os.toString() == system || (os.toString() != "mac" && os.toString() != "android"))
+                onlyOtherMobile = false;
+        const bool sharedHidden = hasDedicated &&
+                                  (entry["group"].toString() == "Base" ||
+                                   entry["group"].toString() == "B\u00f4nus") &&
+                                  oslist.isEmpty();
+        if (entry["group"].toString() == "B\u00f4nus" || onlyOtherMobile || sharedHidden)
+            continue;
         const auto group = entry["group"].toString();
         if (group == "Base")
             base.append(entry);
@@ -455,6 +515,52 @@ QVariantList Catalog::organizeDepots(const QVariantList& depots, const QString& 
     QVariantList out;
     for (const auto& group : {base, dlc, idiomas, bonus})
         out.append(group);
+    return out;
+}
+
+QStringList Catalog::sharedBaseDepots(const QVariantList& depots, const QString& system) {
+    static const QStringList kBonus = {
+        "soundtrack", " ost", "ost ",  "(ost)",  "[ost]", "original soundtrack",
+        "wallpaper",  "artbook",       "art book",      "manual",     "guide",
+        "comic",      "novel",         "goodies",       "avatar",     "poster",
+        "dedicated server"};
+    auto isBonus = [](const QVariantMap& entry) {
+        const auto text =
+            (entry["name"].toString() + " " + entry["depot"].toString()).toLower();
+        for (const auto& keyword : kBonus)
+            if (text.contains(keyword))
+                return true;
+        return false;
+    };
+    auto matches = [](const QVariantMap& depot, const QString& os) {
+        const auto list = depot["oslist"].toList();
+        for (const auto& value : list)
+            if (value.toString() == os)
+                return true;
+        return list.isEmpty();
+    };
+    bool hasDedicated = false;
+    for (const auto& depot : depots) {
+        const auto entry = depot.toMap();
+        const auto oslist = entry["oslist"].toList();
+        if (!entry["dlcappid"].toString().isEmpty() || !entry["language"].toString().isEmpty())
+            continue;
+        if (isBonus(entry))
+            continue;
+        if (matches(entry, system) && !oslist.isEmpty()) {
+            hasDedicated = true;
+            break;
+        }
+    }
+    if (!hasDedicated)
+        return {};
+    QStringList out;
+    for (const auto& depot : depots) {
+        const auto entry = depot.toMap();
+        if (entry["oslist"].toList().isEmpty() && entry["dlcappid"].toString().isEmpty() &&
+            entry["language"].toString().isEmpty() && !isBonus(entry))
+            out.append(entry["depot"].toString());
+    }
     return out;
 }
 void Catalog::promoteKeyedApps(Package& package, QUrl base) {
@@ -524,4 +630,89 @@ bool Catalog::resolveGameName(Package& package, QUrl base) {
     } catch (const std::exception&) {
         return false;
     }
+}
+
+QVariantMap Catalog::dlcNames(const QStringList& appIds, QUrl store, QUrl appInfo) {
+    if (appIds.isEmpty())
+        return {};
+    static const QRegularExpression kSpaces("[\\r\\n\\t]+");
+    const Catalog items(QString(), store);
+    QVariantMap names;
+    // Store appdetails names delisted apps fail on; steamcmd /v1/info still has them.
+    for (const auto& appId : appIds) {
+        try {
+            validateAppId(appId);
+            QUrlQuery query;
+            query.addQueryItem("appids", appId);
+            auto bytes = items.get("/appdetails", query, 1024 * 1024, false, 8000);
+            const auto entry = QJsonDocument::fromJson(bytes).object().value(appId).toObject();
+            auto name = entry.value("data").toObject().value("name").toString().trimmed();
+            if (entry.value("success").toBool() && !name.isEmpty() && name.size() <= 512)
+                names.insert(appId, name.replace(kSpaces, " "));
+        } catch (const std::exception&) {
+        }
+    }
+    const Catalog cmdInfo(QString(), appInfo);
+    for (const auto& appId : appIds) {
+        if (names.contains(appId))
+            continue;
+        try {
+            validateAppId(appId);
+            auto bytes = cmdInfo.get("/v1/info/" + appId, {}, 4 * 1024 * 1024, false, 15000);
+            const auto info = QJsonDocument::fromJson(bytes)
+                                  .object()["data"].toObject().value(appId).toObject();
+            auto name = info.value("common").toObject().value("name").toString().trimmed();
+            if (!name.isEmpty() && name.size() <= 512)
+                names.insert(appId, name.replace(kSpaces, " "));
+        } catch (const std::exception&) {
+        }
+    }
+    return names;
+}
+
+QVariantList Catalog::enrichDlcNames(QVariantList depots, QUrl store, QUrl appInfo,
+                                     QHash<QString, QString> depotNames) {
+    QStringList ids;
+    for (const auto& value : depots) {
+        const auto id = value.toMap().value("dlcappid").toString();
+        if (!id.isEmpty() && !ids.contains(id))
+            ids.append(id);
+    }
+    if (ids.isEmpty() && depotNames.isEmpty())
+        return depots;
+    const auto names = ids.isEmpty() ? QVariantMap() : dlcNames(ids, store, appInfo);
+    for (auto& value : depots) {
+        auto entry = value.toMap();
+        const auto id = entry.value("dlcappid").toString();
+        if (!id.isEmpty() && names.contains(id) && entry.value("name").toString().isEmpty())
+            entry.insert("name", names.value(id).toString());
+        const auto depotId = entry.value("depot").toString();
+        if (depotNames.contains(depotId) && entry.value("name").toString().isEmpty())
+            entry.insert("name", depotNames.value(depotId));
+        value = entry;
+    }
+    return depots;
+}
+
+QHash<QString, QString> Catalog::parseDepotsIni(const QString& path) {
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    QHash<QString, QString> names;
+    while (!file.atEnd()) {
+        const auto line = QString::fromUtf8(file.readLine().trimmed());
+        if (line.isEmpty() || line.startsWith(QLatin1Char('[')) ||
+            line.startsWith(QLatin1Char(';')) || line.startsWith(QLatin1Char('#')))
+            continue;
+        const auto at = line.indexOf(QLatin1Char('='));
+        if (at <= 0)
+            continue;
+        const auto id = line.left(at).trimmed();
+        const auto name = line.mid(at + 1).trimmed();
+        bool ok = false;
+        id.toULongLong(&ok);
+        if (ok && !name.isEmpty())
+            names.insert(id, name);
+    }
+    return names;
 }

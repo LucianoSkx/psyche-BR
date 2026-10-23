@@ -54,6 +54,7 @@ void Backend::acceptPackage(const Package& package, const QString& error) {
     m_depotDetails.clear();
     m_depotRaw.clear();
     m_depotLanguages.clear();
+    m_sharedAuto.clear();
     if (qEnvironmentVariableIsSet("PSYCHE_OFFLINE"))
         return;
     const auto pid = m_appId;
@@ -73,12 +74,14 @@ void Backend::acceptPackage(const Package& package, const QString& error) {
         m_depotLanguage = QStringLiteral("english");
         reorganizeDepots();
     });
-    w3->setFuture(QtConcurrent::run([pid] {
-        QVariantList mapped;
-        for (const auto& entry : Catalog(QString()).depotDetails(pid))
-            mapped.append(entry);
-        return mapped;
-    }));
+    w3->setFuture(QtConcurrent::run(
+        [pid, api = m_nameApi, dataDir = m_settings->dataDirectory()] {
+            QVariantList mapped;
+            for (const auto& entry : Catalog(QString()).depotDetails(pid))
+                mapped.append(entry);
+            return Catalog::enrichDlcNames(mapped, api, {},
+                                           Catalog::parseDepotsIni(dataDir + "/depots.ini"));
+        }));
 }
 void Backend::setDepotLanguage(const QString& language) {
     if (m_depotLanguage == language)
@@ -94,7 +97,9 @@ void Backend::reorganizeDepots() {
             languages.insert(language);
     m_depotLanguages = languages.values();
     std::sort(m_depotLanguages.begin(), m_depotLanguages.end());
-    organized = Catalog::organizeDepots(m_depotRaw, m_settings->downloadOS(), m_depotLanguage);
+    const auto system = m_settings->downloadOS();
+    m_sharedAuto = Catalog::sharedBaseDepots(m_depotRaw, system);
+    organized = Catalog::organizeDepots(m_depotRaw, system, m_depotLanguage);
     m_depotDetails = organized;
     emit changed();
 }
@@ -344,6 +349,8 @@ void Backend::downloadGame(QVariantList selectedDepots) {
         QSet<QString> wanted;
         for (const auto& depot : selectedDepots)
             wanted.insert(depot.toString());
+        for (const auto& depot : m_sharedAuto)
+            wanted.insert(depot);
         for (auto it = m_package.keys.constBegin(); it != m_package.keys.constEnd(); ++it) {
             if (!wanted.isEmpty() && !wanted.contains(it.key()))
                 continue;

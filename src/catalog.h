@@ -21,14 +21,27 @@ public:
     QList<QVariantMap> depotDetails(const QString& appId) const;
 
     /**
-     * Agrupa os depotDetails para a lista do card (ASSella): Base, DLC,
-     * Idiomas e Bônus (trilha/artbook/manuais). Cada item ganha `group` e
-     * `checked`: marca o que baixaria por padrão — depôts compartilhados ou do
-     * `system` (32-bit sai quando existe 64-bit do mesmo sistema), idioma
-     * escolhido; bônus desmarcado. Ordem estável dentro de cada grupo.
+     * Groups depotDetails for the card list (ASSella-style): Base, DLC,
+     * Languages and Bonus. `system`/`language` set the pre-checked defaults;
+     * 32-bit drops out when a 64-bit depot for the same system exists. Like
+     * ASSella, rows are hidden: Bonus always, macOS/Android when they are not
+     * the target system, and shared depots (no oslist) when the system has a
+     * dedicated depot — those still download via sharedBaseDepots().
      */
     static QVariantList organizeDepots(const QVariantList& depots, const QString& system,
                                        const QString& language);
+
+    /** Ids of hidden shared Base depots (required game content). */
+    static QStringList sharedBaseDepots(const QVariantList& depots, const QString& system);
+    // api.steamcmd.net /v1/info exposes no depot names.
+    static QVariantMap dlcNames(const QStringList& appIds, QUrl store,
+                                QUrl appInfo = QUrl("https://api.steamcmd.net"));
+    // Fills name for depots: dlcappid via appdetails, depot id via depots.ini overlay.
+    static QVariantList enrichDlcNames(QVariantList depots, QUrl store,
+                                       QUrl appInfo = QUrl("https://api.steamcmd.net"),
+                                       QHash<QString, QString> depotNames = {});
+    // Parses ASSella's community depots.ini ("id = name" lines under [depots]).
+    static QHash<QString, QString> parseDepotsIni(const QString& path);
     QMap<QString, QString> fetchManifests(const QString& appId, const QString& destDir) const;
     QVariantMap fetchWorkshopInfo(const QString& workshopId, const QString& destDir) const;
     QString fetchSteamWorkshopAppId(const QString& workshopId) const;

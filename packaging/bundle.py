@@ -209,6 +209,8 @@ exec "$bundle_dir/bin/psyche" "$@"
 shutil.copy2("packaging/install.sh", root / "install.sh")
 (root / "install.sh").chmod(0o755)
 shutil.copy2("qml/icons/psyche.svg", root / "psyche.svg")
+if Path("assets/depots.ini").is_file():
+    shutil.copy2("assets/depots.ini", root / "depots.ini")
 if Path("LICENSE").is_file():
     shutil.copy2("LICENSE", root / "LICENSE")
 

@@ -217,8 +217,8 @@ QString registerInstalledGame(const QString& steamAppsDir,
     const auto gameDir = root + "/common/" + installDir;
     const auto now = QString::number(QDateTime::currentSecsSinceEpoch());
 
-    // Steam só reconhece instalação completa com StateFlags 4 e os gids de
-    // manifesto em InstalledDepots; sem isso o jogo fica invisível na biblioteca.
+    // Steam only recognizes a full install with StateFlags 4 and the manifest
+    // gids in InstalledDepots; without them the game stays invisible in the library.
     QString out;
     out += "\"AppState\"\n{\n";
     out += "\t\"appid\"\t\t" + quote(appId) + "\n";
@@ -230,8 +230,8 @@ QString registerInstalledGame(const QString& steamAppsDir,
     out += "\t\"LastPlayed\"\t\t\"0\"\n";
     out += "\t\"SizeOnDisk\"\t\t\"" + QString::number(dirSize(gameDir)) + "\"\n";
     out += "\t\"StagingSize\"\t\t\"0\"\n";
-    // shortcut: buildid 0 e size por depósito 0 (a Hubcap não os fornece); a
-    // Steam só oferece atualização quando os gids de manifesto divergirem.
+    // shortcut: buildid 0 and per-depot size 0 (Hubcap does not provide them);
+    // Steam only offers an update when the manifest gids diverge.
     out += "\t\"buildid\"\t\t\"0\"\n";
     out += "\t\"LastOwner\"\t\t\"0\"\n";
     out += "\t\"DownloadType\"\t\t\"1\"\n";

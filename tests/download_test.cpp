@@ -16,12 +16,12 @@ int main(int argc, char** argv) {
     const QMap<QString, QString> keys{{"10", "aa"}, {"20", "bb"}, {"30", "cc"}};
     const QMap<QString, QString> manifests{{"10", "m10"}, {"30", "m30"}};
 
-    // wanted vazio = todos; 20 sem manifesto vai para missing.
+    // empty wanted = all; 20 without manifest lands in missing.
     auto all = Backend::splitDownloadQueue(keys, {}, manifests);
     check(all.first.size() == 2, "todos: fila com 2");
     check(all.second == QStringList{"20"}, "todos: missing com 20");
 
-    // Filtro por seleção: 30 fora da seleção nem aparece.
+    // Selection filter: 30 outside the selection never shows up.
     auto sel = Backend::splitDownloadQueue(keys, {"10", "20"}, manifests);
     check(sel.first.size() == 1 && sel.first.first().first == "10", "selecao: fila so com 10");
     check(sel.second == QStringList{"20"}, "selecao: missing so com 20");

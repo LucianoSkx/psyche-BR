@@ -58,6 +58,12 @@ ApplicationWindow {
     function formatOS(value) {
         return value === "linux" ? "Linux" : value === "windows" ? "Windows" : "macOS"
     }
+    function formatSize(bytes) {
+        const units = ["B", "KiB", "MiB", "GiB", "TiB"]
+        let value = Number(bytes) || 0, i = 0
+        while (value >= 1024 && i < units.length - 1) { value /= 1024; i++ }
+        return (i > 0 ? value.toFixed(2) : Math.round(value)) + " " + units[i]
+    }
     function contentLabel() {
         const i = ["full", "basegame", "dlc", "zip"].indexOf(preferences.downloadContent)
         return ["Jogo + DLCs", "Só o jogo base", "Só DLCs", "ZIP completo"][Math.max(0, i)]
@@ -178,18 +184,20 @@ ApplicationWindow {
     }
     component Tick: CheckBox {
         id: tick
+        property int boxSize: 18
+        property int labelSize: 13
         indicator: Rectangle {
-            implicitWidth: 18; implicitHeight: 18
+            implicitWidth: tick.boxSize; implicitHeight: tick.boxSize
             x: tick.leftPadding; y: parent.height / 2 - height / 2
             radius: 3; color: window.surface
             border.color: tick.activeFocus ? window.ink : window.border
             Rectangle {
-                anchors.centerIn: parent; width: 10; height: 10; radius: 2
+                anchors.centerIn: parent; width: tick.boxSize - 8; height: tick.boxSize - 8; radius: 2
                 color: window.accent; visible: tick.checked
             }
         }
         contentItem: Text {
-            text: tick.text; color: window.ink; font.pixelSize: 13
+            text: tick.text; color: window.ink; font.pixelSize: tick.labelSize
             leftPadding: tick.indicator.width + 8; verticalAlignment: Text.AlignVCenter
         }
     }
@@ -463,7 +471,7 @@ ApplicationWindow {
                 Card {
                     Layout.fillWidth: true; Layout.fillHeight: true
                     ColumnLayout {
-                        width: parent.width; spacing: 12
+                        anchors.fill: parent; spacing: 12
                         RowLayout {
                             Layout.fillWidth: true; spacing: 10; enabled: backend.ready
                             GameCover {
@@ -484,22 +492,30 @@ ApplicationWindow {
                             }
                         }
                         ScrollView {
-                            visible: backend.depotDetails.length > 0; Layout.fillWidth: true; Layout.preferredHeight: backend.depotDetails.length > 0 ? 280 : 0
+                            visible: backend.depotDetails.length > 0; Layout.fillWidth: true
+                            Layout.preferredHeight: backend.depotDetails.length > 0 ? 380 : 0
                             ListView {
-                                id: depotView; model: backend.depotDetails; clip: true; spacing: 4; width: parent.width
+                                id: depotView; model: backend.depotDetails; clip: true; spacing: 2; width: parent.width
                                 section.property: "group"
                                 section.delegate: Label {
                                     textFormat: Text.PlainText
                                     text: section
                                     color: window.muted; font.pixelSize: 11; font.bold: true
-                                    topPadding: 8; bottomPadding: 2
+                                    topPadding: 6; bottomPadding: 1
                                     Accessible.name: "Grupo " + section
                                 }
                                 delegate: RowLayout {
                                     width: depotView.width
                                     property string depot: modelData.depot
                                     property bool selected: sel.checked
-                                    Tick { id: sel; checked: modelData.checked; text: modelData.name && modelData.name.length > 0 ? modelData.name + " (" + modelData.depot + ")" : modelData.depot; Accessible.name: "Baixar depot " + modelData.depot }
+                                    Tick {
+                                        id: sel; checked: modelData.checked
+                                        implicitHeight: 24; boxSize: 15; labelSize: 12
+                                        text: modelData.tags && modelData.tags.length > 0
+                                              ? modelData.tags + "  " + (modelData.name && modelData.name.length > 0 ? modelData.name + " (" + modelData.depot + ")" : modelData.depot)
+                                              : modelData.name && modelData.name.length > 0 ? modelData.name + " (" + modelData.depot + ")" : modelData.depot
+                                        Accessible.name: "Baixar depot " + modelData.depot
+                                    }
                                     Item { Layout.preferredWidth: 8 }
                                     Label {
                                         textFormat: Text.PlainText
@@ -509,15 +525,21 @@ ApplicationWindow {
                                         }
                                         color: window.muted; font.pixelSize: 11; Layout.fillWidth: true; elide: Text.ElideRight
                                     }
+                                    Label {
+                                        text: (Number(modelData.size) || 0) > 0 ? window.formatSize(modelData.size) : ""
+                                        color: window.muted; font.pixelSize: 11
+                                    }
                                 }
                             }
                         }
+                        // Fills the card leftover so the controls stay at the bottom once a pack is imported.
+                        Item { visible: backend.depotDetails.length > 0; Layout.fillWidth: true; Layout.fillHeight: backend.depotDetails.length > 0 }
                         RowLayout {
                             Layout.fillWidth: true; spacing: 10
                             Label { textFormat: Text.PlainText; text: "Sistema"; color: window.ink; font.pixelSize: 13 }
                             ChoiceBox {
 
-                                id: osBox; Layout.preferredWidth: 160
+                                id: osBox; Layout.preferredWidth: 140; implicitHeight: 30
                                 model: backend.platforms.length > 0 ? backend.platforms.map(window.formatOS) : ["Linux", "Windows", "macOS"]
                                 currentIndex: window.downloadOSIndex()
                                 onActivated: {
@@ -533,7 +555,7 @@ ApplicationWindow {
                             visible: backend.depotLanguages.length > 1
                             Label { textFormat: Text.PlainText; text: "Idioma"; color: window.ink; font.pixelSize: 13 }
                             ChoiceBox {
-                                id: langBox; Layout.preferredWidth: 160
+                                id: langBox; Layout.preferredWidth: 140; implicitHeight: 30
                                 model: backend.depotLanguages.map(function (lang) { return lang.charAt(0).toUpperCase() + lang.slice(1) })
                                 currentIndex: Math.max(0, backend.depotLanguages.indexOf(backend.depotLanguage))
                                 onActivated: backend.setDepotLanguage(backend.depotLanguages[currentIndex])
@@ -548,14 +570,14 @@ ApplicationWindow {
                                 text: preferences.downloadLibrary || (preferences.libraries.length > 0 ? preferences.libraries[0].path : "Nenhuma biblioteca Steam detectada")
                                 color: window.muted; font.pixelSize: 12; elide: Text.ElideLeft; Layout.fillWidth: true
                             }
-                            Action { text: "Escolher…"; flat: true; enabled: !backend.busy; onClicked: libraryDialog.open() }
+                            Action { text: "Escolher…"; flat: true; implicitHeight: 30; enabled: !backend.busy; onClicked: libraryDialog.open() }
                         }
                         RowLayout {
                             Layout.fillWidth: true; spacing: 10
                             Action {
                                 objectName: "downloadButton"
                                 text: backend.downloading ? "Baixando… " + backend.downloadPercent + "%" : "Baixar jogo"
-                                primary: true
+                                primary: true; implicitHeight: 32
                                 enabled: backend.ready && !backend.downloading && !backend.busy
                                 onClicked: {
                                     var selected = []

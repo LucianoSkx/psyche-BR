@@ -7,6 +7,9 @@ destination=$(CDPATH= cd -- "$destination" && pwd)
 cp -R --remove-destination "$bundle_dir/lib" "$bundle_dir/plugins" "$bundle_dir/qml" "$bundle_dir/bin" "$bundle_dir/licenses" "$bundle_dir/fontconfig" "$bundle_dir/depotdownloader" "$destination/runtime/"
 cp --remove-destination "$bundle_dir/psyche" "$destination/runtime/psyche"
 cp "$bundle_dir/psyche.svg" "$destination/psyche.svg"
+if [ -f "$bundle_dir/depots.ini" ]; then
+    cp "$bundle_dir/depots.ini" "$destination/depots.ini"
+fi
 cat > "$destination/bin/psyche" <<'LAUNCHER'
 #!/bin/sh
 set -eu

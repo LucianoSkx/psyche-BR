@@ -170,6 +170,7 @@ private:
     QVariantList m_depotDetails;
     QVariantList m_depotRaw;
     QStringList m_depotLanguages;
+    QStringList m_sharedAuto;
     QString m_depotLanguage = QStringLiteral("english");
     int m_downloadPercent = 0;
     int m_downloadToken = 0;

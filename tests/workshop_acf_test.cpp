@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
     if (!temp.isValid())
         return 1;
 
-    // Cria um diretório de mod com conteúdo para o cálculo de tamanho.
+    // Builds a mod directory with content for the size calculation.
     const auto modDir = temp.path() + "/content/730/222";
     QDir().mkpath(modDir + "/sub");
     auto writeFile = [](const QString& path, int bytes) {
@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
             qFatal("acf: NeedsUpdate/NeedsDownload não zerados:\n%s", qPrintable(text));
     }
 
-    // 2. Item existente no arquivo não pode sumir, e o novo deve ser mesclado.
+    // 2. An item already in the file must not vanish, and the new one must merge in.
     writeAcf(acfPath, kExistingAcf);
     {
         const auto error = registerWorkshopItem(acfPath, "730", "222", "5555", modDir);
@@ -118,7 +118,7 @@ int main(int argc, char** argv) {
             qFatal("acf: metadado de raiz perdido:\n%s", qPrintable(text));
     }
 
-    // 3. Sem manifest do Hubcap, preserva o que já estava gravado para o item.
+    // 3. Without the Hubcap manifest, keeps whatever was already stored for the item.
     writeAcf(acfPath, kExistingAcf);
     {
         const auto error = registerWorkshopItem(acfPath, "730", "111", QString(), modDir);
@@ -129,7 +129,7 @@ int main(int argc, char** argv) {
             qFatal("acf: manifest existente foi apagado sem o Hubcap:\n%s", qPrintable(text));
     }
 
-    // 4. Arquivo vazio/corrompido não pode travar: recria do zero.
+    // 4. An empty/corrupt file must not crash: rebuilds from scratch.
     writeAcf(acfPath, "isto não é um ACF {{{");
     {
         const auto error = registerWorkshopItem(acfPath, "730", "222", "1", modDir);
@@ -139,7 +139,7 @@ int main(int argc, char** argv) {
             qFatal("acf: não recuperou de arquivo corrompido");
     }
 
-    // 5. Diretório inexistente: tamanho zero, sem crash.
+    // 5. Missing directory: zero size, no crash.
     {
         const auto error = registerWorkshopItem(temp.path() + "/novo/appworkshop_1.acf",
                                                "1", "222", "42",
@@ -150,7 +150,7 @@ int main(int argc, char** argv) {
             qFatal("acf: diretório inexistente deveria dar size 0");
     }
 
-    // 6. appmanifest + depotcache para um jogo baixado.
+    // 6. appmanifest + depotcache for a downloaded game.
     {
         const auto steamApps = temp.path() + "/lib/steamapps";
         const auto gameDir = steamApps + "/common/Jogo Teste";
@@ -185,7 +185,7 @@ int main(int argc, char** argv) {
             qFatal("appmanifest: copiou manifesto inexistente");
     }
 
-    // 7. Nome com aspas e barra invertida não pode quebrar o VDF.
+    // 7. A name with quotes and a backslash must not break the VDF.
     {
         const auto steamApps = temp.path() + "/lib2/steamapps";
         QDir().mkpath(steamApps + "/common/X");
@@ -198,7 +198,7 @@ int main(int argc, char** argv) {
             qFatal("appmanifest: nome não escapado:\n%s", qPrintable(text));
     }
 
-    // 8. Sem biblioteca Steam e AppID inválido: erro, sem gravar fora do lugar.
+    // 8. No Steam library and invalid AppID: error, nothing written elsewhere.
     {
         if (registerInstalledGame(QString(), "10", "x", "x", {}, temp.path(), false).isEmpty())
             qFatal("appmanifest: biblioteca vazia deveria falhar");
@@ -210,7 +210,7 @@ int main(int argc, char** argv) {
             qFatal("appmanifest: gravou com AppID inválido");
     }
 
-    // 9. Depôts Windows baixados no Linux marcam platform_override para o Proton.
+    // 9. Windows depots downloaded on Linux mark platform_override for Proton.
     {
         const auto steamApps = temp.path() + "/lib4/steamapps";
         QDir().mkpath(steamApps + "/common/Y");
@@ -226,7 +226,7 @@ int main(int argc, char** argv) {
                    qPrintable(text));
     }
 
-    // 10. Steam aberta: não mexe no config.vdf; fechada: insere o mapping uma vez.
+    // 10. Steam open: leaves config.vdf alone; closed: inserts the mapping once.
     {
         const auto steamDir = temp.path() + "/steam";
         QDir().mkpath(steamDir + "/config");
@@ -307,7 +307,7 @@ int main(int argc, char** argv) {
             qFatal("proton: Flatpak deveria ser ignorado");
     }
 
-    // 12. Lista de Protons instaladas e escolha explícita da ferramenta.
+    // 12. Installed Proton list plus an explicit tool choice.
     {
         const auto steamDir = temp.path() + "/steam12";
         const auto library = temp.path() + "/lib12";
