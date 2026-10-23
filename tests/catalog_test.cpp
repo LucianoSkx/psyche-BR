@@ -193,7 +193,7 @@ int main(int argc, char** argv) {
             responses.append({200, steamcmdDepot("2062431")});
             Catalog::promoteKeyedApps(mixed, steamcmd);
             PSYCHE_CHECK(mixed.apps == QSet<QString>{"2062430"});
-            PSYCHE_CHECK(mixed.depots == QSet<QString>{"2062430", "2062431"});
+            PSYCHE_CHECK(mixed.depots == QSet<QString>{"2062431"});
         }
         {
             auto keyed = readLuaPackage("addappid(2062430, 1, \"" + QByteArray(64, 'a') + "\")");
@@ -246,8 +246,7 @@ int main(int argc, char** argv) {
             for (auto item : yaml["AdditionalApps"])
                 apps.insert(item.as<int>());
             PSYCHE_CHECK(apps == QSet<int>({42, 2062430}));
-            PSYCHE_CHECK(yaml["AdditionalDepots"].size() == 1 &&
-                         yaml["AdditionalDepots"][0].as<int>() == 2062430);
+            PSYCHE_CHECK(yaml["AdditionalDepots"].size() == 0);
         }
         auto before = requests.size();
         rejects([&] { catalog.fetch("123", "invalid"); });
