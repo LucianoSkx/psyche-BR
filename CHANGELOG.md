@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.5 — 2026-10-23
+
+- Registra o jogo na Steam ao fim do download: grava `appmanifest_<appid>.acf` com `InstalledDepots` e `SizeOnDisk` e copia os manifestos para `steamapps/depotcache/`.
+- Depôts Windows baixados no Linux: `platform_override` no ACF e AppID em `CompatToolMapping` no `config.vdf`; botão **Definir Proton** quando a Steam está aberta.
+- Downloads Linux recebem `+x` em ELF, shebang e extensões conhecidas.
+- Corrige testes de `catalog` desalinhados com a promoção de depôt.
+
 ## 1.3.4 — 2026-10-14
 
 - Fundo com gradiente animado e versão no rodapé e na tela inicial.
