@@ -23,6 +23,8 @@ add_library(psyche_core
     src/ranking.h
     src/proton.cpp
     src/proton.h
+    src/permissions.cpp
+    src/permissions.h
     src/settings.cpp
     src/settings.h
 )
@@ -100,6 +102,10 @@ if(BUILD_TESTING)
     add_executable(workshop_acf_test tests/workshop_acf_test.cpp)
     target_link_libraries(workshop_acf_test PRIVATE psyche_core Qt6::Core)
     add_test(NAME workshop_acf COMMAND workshop_acf_test)
+
+    add_executable(permissions_test tests/permissions_test.cpp)
+    target_link_libraries(permissions_test PRIVATE psyche_core Qt6::Core)
+    add_test(NAME permissions COMMAND permissions_test)
 
     add_executable(download_test tests/download_test.cpp src/backend.cpp src/backend.h)
     target_link_libraries(download_test PRIVATE psyche_core Qt6::Core Qt6::Gui Qt6::Concurrent)

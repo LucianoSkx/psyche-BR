@@ -544,6 +544,15 @@ ApplicationWindow {
                                 }
                             }
                             Action { text: "Cancelar"; flat: true; visible: backend.downloading; onClicked: backend.cancelDownload() }
+                            Action {
+                                objectName: "protonButton"
+                                text: "Definir Proton"
+                                flat: true
+                                visible: backend.ready && preferences.downloadOS === "windows" && preferences.libraries.length > 0
+                                enabled: !backend.downloading && !backend.busy
+                                onClicked: backend.setProton()
+                                Accessible.name: "Definir Proton para o AppID " + backend.appId
+                            }
                             Hint { visible: backend.downloadStatus.length > 0; text: backend.downloadStatus; horizontalAlignment: Text.AlignRight }
                         }
                         ProgressBar {

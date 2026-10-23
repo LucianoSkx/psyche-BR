@@ -39,6 +39,8 @@ A aba Downloads apresenta dois cards lado a lado.
 
 Depots com checkbox, sistema (Linux/Windows/macOS, filtrado pelos `oslist` reais do jogo) e biblioteca Steam detectada. O pacote vem pronto da aba Importar. Os manifestos são buscados na Hubcap e armazenados em cache; o destino é `steamapps/common/<nome>` na biblioteca selecionada.
 
+Ao terminar, o app grava o `appmanifest_<appid>.acf` com `SizeOnDisk` e os manifestos usados em `InstalledDepots`, e copia os `.manifest` para `steamapps/depotcache/` — é o que faz a Steam listar o jogo como instalado e não baixar tudo de novo na verificação de integridade. Em downloads Linux, os binários (ELF, shebang e extensões como `.sh`/`.x86_64`) recebem `+x`: o DepotDownloader grava tudo como `0644` e a Steam não guarda permissão no manifesto. Baixando depôts Windows no Linux, o ACF leva `platform_override` e o app registra o AppID em `CompatToolMapping` no `config.vdf` da Steam. Isso só é gravado com a Steam fechada, porque ela reescreve o arquivo ao sair: nesse caso o status avisa e o botão **Definir Proton** do card faz o registro depois que ela for fechada.
+
 ### Workshop
 
 Cole URLs ou IDs de mods (um por linha, espaço ou vírgula; duplicatas são ignoradas), veja a fila e baixe todos. Os mods vão para `steamapps/workshop/content/<appid>/<id>`, e o app grava o `appworkshop_<appid>.acf` mesclando o item nos que já estavam, para a Steam listar como instalado.
@@ -47,7 +49,7 @@ O AppID de cada item vem da Hubcap; quando ela não tem o item no catálogo, sai
 
 Requisitos: runtime **.NET 9** (procure em `~/.dotnet/dotnet` ou `PATH`) e o binário do DepotDownloader, que já vem no pacote. O `PSYCHE_DEPOTDOWNLOADER=official` no `packaging/bundle.py` é fallback para o upstream.
 
-Cancelamento interrompe o download em andamento. O ACF só é gravado quando existe biblioteca Steam escolhida — sem ela, a Steam não lê o arquivo.
+Cancelamento interrompe o download em andamento. Os ACFs só são gravados quando existe biblioteca Steam escolhida — sem ela, a Steam não lê os arquivos.
 
 ## CLI
 

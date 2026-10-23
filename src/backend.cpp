@@ -1,8 +1,9 @@
 #include "backend.h"
 #include "catalog.h"
 #include "library.h"
-#include "workshopacf.h"
+#include "permissions.h"
 #include "proton.h"
+#include "workshopacf.h"
 #include <QCoreApplication>
 #include <QDesktopServices>
 #include <QDir>
@@ -176,6 +177,30 @@ void Backend::cancelDownload() {
     }
 }
 
+void Backend::setProton() {
+    if (m_busy || m_downloading)
+        return;
+    if (m_appId.isEmpty()) {
+        m_downloadStatus = "Escolha um jogo antes de definir o Proton.";
+        emit changed();
+        return;
+    }
+    auto library = m_settings->downloadLibrary();
+    if (library.isEmpty()) {
+        const auto libs = m_settings->libraries();
+        if (!libs.isEmpty())
+            library = libs.first().toMap().value("path").toString();
+    }
+    m_settings->refreshSteamRunning();
+    const auto steamApps = library.isEmpty() ? QString() : library + "/steamapps";
+    const auto message = Proton::forceCompatTool(
+        m_appId, Proton::steamRootFor(m_settings->steamDirectories(), steamApps),
+        m_settings->steamRunning());
+    m_downloadStatus =
+        message.isEmpty() ? "Proton já estava definido para o AppID " + m_appId + "." : message;
+    emit changed();
+}
+
 QString Backend::resolveDotnet() const {
     QStringList candidates;
     candidates << qEnvironmentVariable("PSYCHE_DOTNET") << QDir::homePath() + "/.dotnet/dotnet"
@@ -251,8 +276,10 @@ void Backend::downloadGame(QVariantList selectedDepots) {
     if (!library.isEmpty()) {
         QDir().mkpath(library + "/steamapps/common");
         m_downloadDir = library + "/steamapps/common/" + name;
+        m_downloadSteamApps = library + "/steamapps";
     } else {
         m_downloadDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/psyche/" + name;
+        m_downloadSteamApps.clear();
     }
     m_downloading = true;
     ++m_downloadToken;
@@ -532,6 +559,30 @@ void Backend::runNextDepot(const QString& dotnet, const QString& dll, const QStr
             m_downloadStatus += " Sem manifesto na Hubcap para os depôts: "
                 + m_downloadMissing.join(", ") + ".";
         m_downloadPercent = 100;
+        const auto installDir = QFileInfo(m_downloadDir).fileName();
+        const auto windowsDepots = m_settings->downloadOS() == "windows";
+        const auto registered = registerInstalledGame(
+            m_downloadSteamApps, appId, gameName().isEmpty() ? installDir : gameName(), installDir,
+            m_downloadQueue, m_manifestsDir, windowsDepots);
+        if (!registered.isEmpty())
+            m_downloadStatus += " " + registered;
+        if (windowsDepots && !m_downloadSteamApps.isEmpty()) {
+            m_settings->refreshSteamRunning();
+            const auto proton = Proton::forceCompatTool(
+                appId, Proton::steamRootFor(m_settings->steamDirectories(), m_downloadSteamApps),
+                m_settings->steamRunning());
+            if (!proton.isEmpty())
+                m_downloadStatus += " " + proton;
+        }
+        if (m_settings->downloadOS() == "linux" && !m_downloadDir.isEmpty()) {
+            const auto gameDir = m_downloadDir;
+            auto fix = new QFutureWatcher<int>(this);
+            connect(fix, &QFutureWatcherBase::finished, this, [fix] {
+                fix->result();
+                fix->deleteLater();
+            });
+            fix->setFuture(QtConcurrent::run([gameDir] { return makeExecutable(gameDir); }));
+        }
         QDirIterator it(m_downloadDir, {"EOSSDK*.dll"}, QDir::Files, QDirIterator::Subdirectories);
         while (it.hasNext()) {
             if (it.next().toLower().contains("eossdk-win64-shipping")) {

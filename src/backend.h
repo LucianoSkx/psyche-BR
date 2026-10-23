@@ -116,6 +116,7 @@ public:
     Q_INVOKABLE void restore(int historyIndex);
     Q_INVOKABLE void downloadGame(QVariantList selectedDepots = QVariantList());
     Q_INVOKABLE void cancelDownload();
+    Q_INVOKABLE void setProton();
     Q_INVOKABLE void downloadWorkshop();
     Q_INVOKABLE void clearWorkshop() {
         m_workshopInput.clear();
@@ -163,7 +164,7 @@ private:
     QVariantList m_depotDetails;
     int m_downloadPercent = 0;
     int m_downloadToken = 0;
-    QString m_downloadStatus, m_downloadDir;
+    QString m_downloadStatus, m_downloadDir, m_downloadSteamApps;
     QProcess* m_downloadProcess = nullptr;
     QList<QPair<QString, QString>> m_downloadQueue;
     QStringList m_downloadMissing;

@@ -197,3 +197,93 @@ QString registerWorkshopItem(const QString& acfPath,
         return "Falha ao salvar " + acfPath;
     return {};
 }
+
+QString registerInstalledGame(const QString& steamAppsDir,
+                              const QString& appId,
+                              const QString& name,
+                              const QString& installDir,
+                              const QList<QPair<QString, QString>>& depots,
+                              const QString& manifestDir,
+                              bool windowsDepots) {
+    if (steamAppsDir.isEmpty())
+        return "Selecione uma biblioteca Steam para registrar o jogo.";
+    for (const auto& c : appId)
+        if (!c.isDigit())
+            return "AppID inválido.";
+    if (appId.isEmpty() || installDir.isEmpty() || installDir.contains('/') || installDir == "..")
+        return "Nome de instalação inválido.";
+
+    const auto root = QDir::cleanPath(steamAppsDir);
+    const auto gameDir = root + "/common/" + installDir;
+    const auto now = QString::number(QDateTime::currentSecsSinceEpoch());
+
+    // Steam só reconhece instalação completa com StateFlags 4 e os gids de
+    // manifesto em InstalledDepots; sem isso o jogo fica invisível na biblioteca.
+    QString out;
+    out += "\"AppState\"\n{\n";
+    out += "\t\"appid\"\t\t" + quote(appId) + "\n";
+    out += "\t\"Universe\"\t\t\"1\"\n";
+    out += "\t\"name\"\t\t" + quote(name) + "\n";
+    out += "\t\"StateFlags\"\t\t\"4\"\n";
+    out += "\t\"installdir\"\t\t" + quote(installDir) + "\n";
+    out += "\t\"LastUpdated\"\t\t" + quote(now) + "\n";
+    out += "\t\"LastPlayed\"\t\t\"0\"\n";
+    out += "\t\"SizeOnDisk\"\t\t\"" + QString::number(dirSize(gameDir)) + "\"\n";
+    out += "\t\"StagingSize\"\t\t\"0\"\n";
+    // shortcut: buildid 0 e size por depósito 0 (a Hubcap não os fornece); a
+    // Steam só oferece atualização quando os gids de manifesto divergirem.
+    out += "\t\"buildid\"\t\t\"0\"\n";
+    out += "\t\"LastOwner\"\t\t\"0\"\n";
+    out += "\t\"DownloadType\"\t\t\"1\"\n";
+    out += "\t\"UpdateResult\"\t\t\"0\"\n";
+    out += "\t\"BytesToDownload\"\t\t\"0\"\n";
+    out += "\t\"BytesDownloaded\"\t\t\"0\"\n";
+    out += "\t\"BytesToStage\"\t\t\"0\"\n";
+    out += "\t\"BytesStaged\"\t\t\"0\"\n";
+    out += "\t\"TargetBuildID\"\t\t\"0\"\n";
+    out += "\t\"AutoUpdateBehavior\"\t\t\"0\"\n";
+    out += "\t\"AllowOtherDownloadsWhileRunning\"\t\t\"0\"\n";
+    out += "\t\"ScheduledAutoUpdate\"\t\t\"0\"\n";
+    out += "\t\"InstalledDepots\"\n\t{\n";
+    for (const auto& depot : depots) {
+        out += "\t\t" + quote(depot.first) + "\n\t\t{\n";
+        out += "\t\t\t\"manifest\"\t\t" + quote(depot.second) + "\n";
+        out += "\t\t\t\"size\"\t\t\"0\"\n";
+        out += "\t\t}\n";
+    }
+    out += "\t}\n";
+    out += "\t\"UserConfig\"\n\t{\n";
+    if (windowsDepots) {
+        out += "\t\t\"platform_override_dest\"\t\t\"linux\"\n";
+        out += "\t\t\"platform_override_source\"\t\t\"windows\"\n";
+    }
+    out += "\t}\n";
+    out += "\t\"MountedConfig\"\n\t{\n";
+    if (windowsDepots) {
+        out += "\t\t\"platform_override_dest\"\t\t\"linux\"\n";
+        out += "\t\t\"platform_override_source\"\t\t\"windows\"\n";
+    }
+    out += "\t}\n";
+    out += "}\n";
+
+    const auto acfPath = root + "/appmanifest_" + appId + ".acf";
+    const auto payload = out.toUtf8();
+    QDir().mkpath(root);
+    QSaveFile file(acfPath);
+    if (!file.open(QIODevice::WriteOnly) || file.write(payload) != payload.size() || !file.commit())
+        return "Não foi possível gravar " + acfPath;
+
+    const auto cacheDir = root + "/depotcache";
+    QDir().mkpath(cacheDir);
+    QStringList uncopied;
+    for (const auto& depot : depots) {
+        const auto fileName = depot.first + "_" + depot.second + ".manifest";
+        if (depot.second.isEmpty() || QFile::exists(cacheDir + "/" + fileName))
+            continue;
+        if (!QFile::copy(manifestDir + "/" + fileName, cacheDir + "/" + fileName) &&
+            QFile::exists(manifestDir + "/" + fileName))
+            uncopied.append(fileName);
+    }
+    return uncopied.isEmpty() ? QString()
+                              : "Manifestos não copiados para depotcache: " + uncopied.join(", ");
+}
