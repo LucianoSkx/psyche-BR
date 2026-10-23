@@ -307,5 +307,85 @@ int main(int argc, char** argv) {
             qFatal("proton: Flatpak deveria ser ignorado");
     }
 
+    // 12. Lista de Protons instaladas e escolha explícita da ferramenta.
+    {
+        const auto steamDir = temp.path() + "/steam12";
+        const auto library = temp.path() + "/lib12";
+        QDir().mkpath(steamDir + "/config");
+        QDir().mkpath(steamDir + "/compatibilitytools.d/Proton-GE Latest");
+        QDir().mkpath(library + "/steamapps/common/Proton 10.0");
+        QDir().mkpath(library + "/steamapps/common/Proton Hotfix");
+        QDir().mkpath(library + "/steamapps/common/Proton Foo");
+        writeAcf(steamDir + "/compatibilitytools.d/Proton-GE Latest/compatibilitytool.vdf",
+                 R"("compatibilitytools"
+{
+  "compat_tools"
+  {
+    "Proton-GE Latest" // Internal name of this tool
+    {
+      "install_path" "."
+      "display_name" "PROTON GE"
+    }
+  }
+}
+)");
+        const auto configPath = steamDir + "/config/config.vdf";
+        writeAcf(configPath,
+                 R"("InstallConfigStore"
+{
+	"Software"
+	{
+		"Valve"
+		{
+			"Steam"
+			{
+				"CompatToolMapping"
+				{
+					"620"
+					{
+						"name"		"Proton Sumido"
+						"config"		""
+						"priority"		"250"
+					}
+				}
+			}
+		}
+	}
+}
+)");
+        const auto tools = Proton::installedTools(steamDir, {library}, "620");
+        if (tools.size() != 4)
+            qFatal("proton: lista deveria ter 4 itens (sem 'Proton Foo'), tem %d", tools.size());
+        const auto itemAt = [&tools](int index) { return tools[index].toMap(); };
+        if (itemAt(0)["name"].toString() != "Proton Sumido" || !itemAt(0)["current"].toBool())
+            qFatal("proton: mapeamento sem instalação deveria vir primeiro marcado");
+        if (itemAt(1)["name"].toString() != "Proton-GE Latest" ||
+            itemAt(1)["label"].toString() != "PROTON GE")
+            qFatal("proton: ferramenta de compatibilitytools.d perdida");
+        if (itemAt(2)["name"].toString() != "proton_10" ||
+            itemAt(2)["label"].toString() != "Proton 10.0")
+            qFatal("proton: Proton 10.0 não virou proton_10");
+        if (itemAt(3)["name"].toString() != "proton_hotfix")
+            qFatal("proton: Proton Hotfix não virou proton_hotfix");
+
+        if (!Proton::forceCompatTool("620", steamDir, false, "proton_10").isEmpty())
+            qFatal("proton: escolha explícita falhou");
+        const auto trocado = readAll(configPath);
+        if (trocado.count("\"620\"") != 1)
+            qFatal("proton: troca explícita duplicou o AppID:\n%s", qPrintable(trocado));
+        if (trocado.count("\"proton_10\"") != 1)
+            qFatal("proton: escolha explícita não gravou proton_10");
+        if (!Proton::forceCompatTool("620", steamDir, false, "proton_10").isEmpty())
+            qFatal("proton: mesma escolha repetida deveria ser no-op");
+        if (Proton::forceCompatTool("620", steamDir, false, "nome;invalido").isEmpty())
+            qFatal("proton: nome inválido deveria falhar");
+        const auto marcado = Proton::installedTools(steamDir, {library}, "620");
+        if (marcado.size() != 3)
+            qFatal("proton: lista deveria ter 3 itens, tem %d", marcado.size());
+        const auto item = marcado[1].toMap();
+        if (item["name"].toString() != "proton_10" || !item["current"].toBool())
+            qFatal("proton: marcação do item atual errada");
+    }
+
     return 0;
 }

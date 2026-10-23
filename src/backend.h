@@ -116,7 +116,8 @@ public:
     Q_INVOKABLE void restore(int historyIndex);
     Q_INVOKABLE void downloadGame(QVariantList selectedDepots = QVariantList());
     Q_INVOKABLE void cancelDownload();
-    Q_INVOKABLE void setProton();
+    Q_INVOKABLE void setProton(const QString& tool = {});
+    Q_INVOKABLE QVariantList protonTools();
     Q_INVOKABLE void downloadWorkshop();
     Q_INVOKABLE void clearWorkshop() {
         m_workshopInput.clear();

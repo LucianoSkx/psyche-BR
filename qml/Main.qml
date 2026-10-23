@@ -550,8 +550,29 @@ ApplicationWindow {
                                 flat: true
                                 visible: backend.ready && preferences.downloadOS === "windows" && preferences.libraries.length > 0
                                 enabled: !backend.downloading && !backend.busy
-                                onClicked: backend.setProton()
+                                onClicked: {
+                                    toolRepeater.model = backend.protonTools()
+                                    protonMenu.popup()
+                                }
                                 Accessible.name: "Definir Proton para o AppID " + backend.appId
+                            }
+                            Menu {
+                                id: protonMenu
+                                implicitWidth: 300
+                                MenuItem {
+                                    text: "Automático (mais usado)"
+                                    onTriggered: backend.setProton()
+                                }
+                                MenuSeparator {}
+                                Repeater {
+                                    id: toolRepeater
+                                    model: []
+                                    delegate: MenuItem {
+                                        required property var modelData
+                                        text: (modelData.current ? "✓ " : "") + modelData.label
+                                        onTriggered: backend.setProton(modelData.name)
+                                    }
+                                }
                             }
                             Hint { visible: backend.downloadStatus.length > 0; text: backend.downloadStatus; horizontalAlignment: Text.AlignRight }
                         }

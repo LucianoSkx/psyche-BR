@@ -177,7 +177,7 @@ void Backend::cancelDownload() {
     }
 }
 
-void Backend::setProton() {
+void Backend::setProton(const QString& tool) {
     if (m_busy || m_downloading)
         return;
     if (m_appId.isEmpty()) {
@@ -195,10 +195,29 @@ void Backend::setProton() {
     const auto steamApps = library.isEmpty() ? QString() : library + "/steamapps";
     const auto message = Proton::forceCompatTool(
         m_appId, Proton::steamRootFor(m_settings->steamDirectories(), steamApps),
-        m_settings->steamRunning());
+        m_settings->steamRunning(), tool);
     m_downloadStatus =
-        message.isEmpty() ? "Proton já estava definido para o AppID " + m_appId + "." : message;
+        message.isEmpty()
+            ? (tool.isEmpty()
+                   ? "Proton já estava definido para o AppID " + m_appId + "."
+                   : "Proton definido para o AppID " + m_appId + ": " + tool)
+            : message;
     emit changed();
+}
+
+QVariantList Backend::protonTools() {
+    QStringList libraries;
+    for (const auto& entry : m_settings->libraries()) {
+        const auto path = entry.toMap().value("path").toString();
+        if (!path.isEmpty())
+            libraries.append(path);
+    }
+    auto library = m_settings->downloadLibrary();
+    if (library.isEmpty() && !libraries.isEmpty())
+        library = libraries.first();
+    const auto steamApps = library.isEmpty() ? QString() : library + "/steamapps";
+    return Proton::installedTools(
+        Proton::steamRootFor(m_settings->steamDirectories(), steamApps), libraries, m_appId);
 }
 
 QString Backend::resolveDotnet() const {
