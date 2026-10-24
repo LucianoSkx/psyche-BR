@@ -11,14 +11,40 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFutureWatcher>
+#include <QJsonArray>
+#include <QJsonDocument>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QSaveFile>
 #include <QStandardPaths>
 #include <QStringList>
 #include <QtConcurrent>
 
 #include <QSet>
 #include <algorithm>
+
+namespace {
+QString depotCachePath(const QString& dataDir, const QString& appId) {
+    return dataDir + "/depots/" + appId + ".json";
+}
+
+QVariantList readDepotCache(const QString& path) {
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    return QJsonDocument::fromJson(file.readAll()).array().toVariantList();
+}
+
+void writeDepotCache(const QString& path, const QVariantList& depots) {
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly))
+        return;
+    file.write(QJsonDocument(QJsonArray::fromVariantList(depots)).toJson(QJsonDocument::Compact));
+    file.commit();
+}
+}
+
 void Backend::begin(QString activity, QString status) {
     m_busy = true;
     m_activity = activity;
@@ -55,6 +81,12 @@ void Backend::acceptPackage(const Package& package, const QString& error) {
     m_depotRaw.clear();
     m_depotLanguages.clear();
     m_sharedAuto.clear();
+    const auto cachePath = depotCachePath(m_settings->dataDirectory(), m_appId);
+    m_depotRaw = readDepotCache(cachePath);
+    if (!m_depotRaw.isEmpty()) {
+        m_depotLanguage = QStringLiteral("english");
+        reorganizeDepots();
+    }
     if (qEnvironmentVariableIsSet("PSYCHE_OFFLINE"))
         return;
     const auto pid = m_appId;
@@ -68,9 +100,13 @@ void Backend::acceptPackage(const Package& package, const QString& error) {
     });
     w2->setFuture(QtConcurrent::run([pid, dataDir2] { return Proton::tiers({pid}, dataDir2); }));
     auto w3 = new QFutureWatcher<QVariantList>(this);
-    connect(w3, &QFutureWatcherBase::finished, this, [this, w3] {
-        m_depotRaw = w3->result();
+    connect(w3, &QFutureWatcherBase::finished, this, [this, w3, cachePath] {
+        const auto fetched = w3->result();
         w3->deleteLater();
+        if (fetched.isEmpty())
+            return;
+        m_depotRaw = fetched;
+        writeDepotCache(cachePath, fetched);
         m_depotLanguage = QStringLiteral("english");
         reorganizeDepots();
     });
