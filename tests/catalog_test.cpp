@@ -402,8 +402,10 @@ int main(int argc, char** argv) {
             QStringList visibleDepots;
             for (const auto& entry : out)
                 visibleDepots.append(entry.toMap()["depot"].toString());
-            // macOS, bonus and shared rows when a dedicated depot exists: hidden.
-            PSYCHE_CHECK(visibleDepots == QStringList{"1147566", "1147567", "2512790", "910001"});
+            // macOS, bonus and bonus rows: hidden. Shared rows stay (ASSella):
+            // redistributables can be the only oslist-tagged depots.
+            PSYCHE_CHECK(visibleDepots ==
+                         QStringList{"1147564", "1147566", "1147567", "2512790", "910001"});
             QVariantList groups;
             for (const auto& entry : out) {
                 const auto group = entry.toMap()["group"].toString();
@@ -416,6 +418,7 @@ int main(int argc, char** argv) {
             QMap<QString, QVariantMap> byDepot;
             for (const auto& entry : out)
                 byDepot[entry.toMap()["depot"].toString()] = entry.toMap();
+            PSYCHE_CHECK(byDepot["1147564"].value("checked").toBool());
             PSYCHE_CHECK(!byDepot["1147566"].value("checked").toBool());
             PSYCHE_CHECK(byDepot["1147567"].value("checked").toBool());
             PSYCHE_CHECK(byDepot["2512790"].value("group").toString() == "DLC" &&

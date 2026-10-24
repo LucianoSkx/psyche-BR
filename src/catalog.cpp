@@ -478,29 +478,16 @@ QVariantList Catalog::organizeDepots(const QVariantList& depots, const QString& 
         entries.append(entry);
     }
     // ASSella parity: bonus rows out; macOS/Android out unless they are the
-    // target system; shared out when the system has a dedicated depot
-    // (they still download — sharedBaseDepots).
-    bool hasDedicated = false;
-    for (const auto& entry : entries) {
-        if (entry["group"].toString() != "Base" || !matches(entry, system))
-            continue;
-        const auto oslist = entry["oslist"].toList();
-        if (!oslist.isEmpty()) {
-            hasDedicated = true;
-            break;
-        }
-    }
+    // target system. Shared depots (no oslist) stay listed: the API often tags
+    // only redistributables with an oslist, and hiding shared rows would hide
+    // the game itself.
     for (const auto& entry : entries) {
         const auto oslist = entry["oslist"].toList();
         bool onlyOtherMobile = !oslist.isEmpty();
         for (const auto& os : oslist)
             if (os.toString() == system || (os.toString() != "mac" && os.toString() != "android"))
                 onlyOtherMobile = false;
-        const bool sharedHidden = hasDedicated &&
-                                  (entry["group"].toString() == "Base" ||
-                                   entry["group"].toString() == "B\u00f4nus") &&
-                                  oslist.isEmpty();
-        if (entry["group"].toString() == "B\u00f4nus" || onlyOtherMobile || sharedHidden)
+        if (entry["group"].toString() == "B\u00f4nus" || onlyOtherMobile)
             continue;
         const auto group = entry["group"].toString();
         if (group == "Base")
