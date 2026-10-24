@@ -263,16 +263,6 @@ ApplicationWindow {
         anchors.fill: parent; currentIndex: tabs.currentIndex
         Pane {
             padding: 16; background: Item {}
-            Rectangle {
-                anchors.fill: parent
-                opacity: 0.18
-                visible: tabs.currentIndex === 0
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: "#4a5568" }
-                    GradientStop { position: 0.5; color: "#2d3748" }
-                    GradientStop { position: 1.0; color: "#718096" }
-                }
-            }
             ColumnLayout {
                 anchors.fill: parent; spacing: 10
                 RowLayout {
@@ -491,55 +481,52 @@ ApplicationWindow {
                                 Hint { text: backend.ready ? "#" + backend.appId + (backend.proton.length > 0 ? " • ProtonDB " + backend.proton.charAt(0).toUpperCase() + backend.proton.slice(1) : "") : "Importe um pacote na aba Importar ou abra um ZIP." }
                             }
                         }
-                        ScrollView {
-                            visible: backend.depotDetails.length > 0; Layout.fillWidth: true
-                            Layout.preferredHeight: backend.depotDetails.length > 0 ? 380 : 0
-                            ListView {
-                                id: depotView; model: backend.depotDetails; clip: true; spacing: 2; width: parent.width
-                                section.property: "group"
-                                section.delegate: Label {
-                                    textFormat: Text.PlainText
-                                    text: section
-                                    color: window.muted; font.pixelSize: 11; font.bold: true
-                                    topPadding: 6; bottomPadding: 1
-                                    Accessible.name: "Grupo " + section
+                        ListView {
+                            id: depotView; visible: backend.depotDetails.length > 0; Layout.fillWidth: true
+                            Layout.fillHeight: backend.depotDetails.length > 0; Layout.minimumHeight: 0
+                            model: backend.depotDetails; clip: true; spacing: 2; width: parent.width
+                            ScrollBar.vertical: ScrollBar {}
+                            section.property: "group"
+                            section.delegate: Label {
+                                textFormat: Text.PlainText
+                                text: section
+                                color: window.muted; font.pixelSize: 11; font.bold: true
+                                topPadding: 6; bottomPadding: 1
+                                Accessible.name: "Grupo " + section
+                            }
+                            delegate: RowLayout {
+                                width: depotView.width
+                                property string depot: modelData.depot
+                                property bool selected: sel.checked
+                                Tick {
+                                    id: sel; checked: modelData.checked
+                                    implicitHeight: 24; boxSize: 15; labelSize: 12
+                                    text: modelData.tags && modelData.tags.length > 0
+                                          ? modelData.tags + "  " + (modelData.name && modelData.name.length > 0 ? modelData.name + " (" + modelData.depot + ")" : modelData.depot)
+                                          : modelData.name && modelData.name.length > 0 ? modelData.name + " (" + modelData.depot + ")" : modelData.depot
+                                    Accessible.name: "Baixar depot " + modelData.depot
                                 }
-                                delegate: RowLayout {
-                                    width: depotView.width
-                                    property string depot: modelData.depot
-                                    property bool selected: sel.checked
-                                    Tick {
-                                        id: sel; checked: modelData.checked
-                                        implicitHeight: 24; boxSize: 15; labelSize: 12
-                                        text: modelData.tags && modelData.tags.length > 0
-                                              ? modelData.tags + "  " + (modelData.name && modelData.name.length > 0 ? modelData.name + " (" + modelData.depot + ")" : modelData.depot)
-                                              : modelData.name && modelData.name.length > 0 ? modelData.name + " (" + modelData.depot + ")" : modelData.depot
-                                        Accessible.name: "Baixar depot " + modelData.depot
+                                Item { Layout.preferredWidth: 8 }
+                                Label {
+                                    textFormat: Text.PlainText
+                                    text: {
+                                        const os = modelData.oslist && modelData.oslist.length > 0 ? modelData.oslist.map(window.formatOS).join(", ") : "—"
+                                        return modelData.osarch && modelData.osarch.length > 0 ? os + " · " + modelData.osarch + "-bit" : os
                                     }
-                                    Item { Layout.preferredWidth: 8 }
-                                    Label {
-                                        textFormat: Text.PlainText
-                                        text: {
-                                            const os = modelData.oslist && modelData.oslist.length > 0 ? modelData.oslist.map(window.formatOS).join(", ") : "—"
-                                            return modelData.osarch && modelData.osarch.length > 0 ? os + " · " + modelData.osarch + "-bit" : os
-                                        }
-                                        color: window.muted; font.pixelSize: 11; Layout.fillWidth: true; elide: Text.ElideRight
-                                    }
-                                    Label {
-                                        text: (Number(modelData.size) || 0) > 0 ? window.formatSize(modelData.size) : ""
-                                        color: window.muted; font.pixelSize: 11
-                                    }
+                                    color: window.muted; font.pixelSize: 11; Layout.fillWidth: true; elide: Text.ElideRight
+                                }
+                                Label {
+                                    text: (Number(modelData.size) || 0) > 0 ? window.formatSize(modelData.size) : ""
+                                    color: window.muted; font.pixelSize: 11
                                 }
                             }
                         }
-                        // Fills the card leftover so the controls stay at the bottom once a pack is imported.
-                        Item { visible: backend.depotDetails.length > 0; Layout.fillWidth: true; Layout.fillHeight: backend.depotDetails.length > 0 }
                         RowLayout {
                             Layout.fillWidth: true; spacing: 10
-                            Label { textFormat: Text.PlainText; text: "Sistema"; color: window.ink; font.pixelSize: 13 }
+                            Label { textFormat: Text.PlainText; text: "Sistema"; color: window.ink; font.pixelSize: 13; visible: window.width >= 820 }
                             ChoiceBox {
 
-                                id: osBox; Layout.preferredWidth: 140; implicitHeight: 30
+                                id: osBox; Layout.preferredWidth: window.width < 820 ? 100 : 140; implicitHeight: 30
                                 model: backend.platforms.length > 0 ? backend.platforms.map(window.formatOS) : ["Linux", "Windows", "macOS"]
                                 currentIndex: window.downloadOSIndex()
                                 onActivated: {
@@ -549,35 +536,10 @@ ApplicationWindow {
                                 }
                                 Accessible.name: "Sistema do download"
                             }
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true; spacing: 10
-                            visible: backend.depotLanguages.length > 1
-                            Label { textFormat: Text.PlainText; text: "Idioma"; color: window.ink; font.pixelSize: 13 }
-                            ChoiceBox {
-                                id: langBox; Layout.preferredWidth: 140; implicitHeight: 30
-                                model: backend.depotLanguages.map(function (lang) { return lang.charAt(0).toUpperCase() + lang.slice(1) })
-                                currentIndex: Math.max(0, backend.depotLanguages.indexOf(backend.depotLanguage))
-                                onActivated: backend.setDepotLanguage(backend.depotLanguages[currentIndex])
-                                Accessible.name: "Idioma dos depots"
-                            }
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true; spacing: 10
-                            Label { textFormat: Text.PlainText; text: "Biblioteca"; color: window.ink; font.pixelSize: 13 }
-                            Label {
-                                textFormat: Text.PlainText
-                                text: preferences.downloadLibrary || (preferences.libraries.length > 0 ? preferences.libraries[0].path : "Nenhuma biblioteca Steam detectada")
-                                color: window.muted; font.pixelSize: 12; elide: Text.ElideLeft; Layout.fillWidth: true
-                            }
-                            Action { text: "Escolher…"; flat: true; implicitHeight: 30; enabled: !backend.busy; onClicked: libraryDialog.open() }
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true; spacing: 10
                             Action {
                                 objectName: "downloadButton"
                                 text: backend.downloading ? "Baixando… " + backend.downloadPercent + "%" : "Baixar jogo"
-                                primary: true; implicitHeight: 32
+                                primary: true; implicitHeight: 30; Layout.fillWidth: window.width < 820
                                 enabled: backend.ready && !backend.downloading && !backend.busy
                                 onClicked: {
                                     var selected = []
@@ -622,6 +584,17 @@ ApplicationWindow {
                             }
                             Hint { visible: backend.downloadStatus.length > 0; text: backend.downloadStatus; horizontalAlignment: Text.AlignRight }
                         }
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 10
+                            Label { textFormat: Text.PlainText; text: "Biblioteca"; color: window.ink; font.pixelSize: 13 }
+                            Label {
+                                textFormat: Text.PlainText
+                                text: preferences.downloadLibrary || (preferences.libraries.length > 0 ? preferences.libraries[0].path : "Nenhuma biblioteca Steam detectada")
+                                color: window.muted; font.pixelSize: 12; elide: Text.ElideLeft; Layout.fillWidth: true
+                            }
+                            Action { text: "Escolher…"; flat: true; implicitHeight: 30; enabled: !backend.busy; onClicked: libraryDialog.open() }
+                        }
+                        Item { Layout.fillHeight: backend.depotDetails.length === 0 }
                         ProgressBar {
                             visible: backend.downloading; Layout.fillWidth: true
                             from: 0; to: 100; value: backend.downloadPercent
