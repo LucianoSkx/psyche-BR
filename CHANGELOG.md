@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.6 — 2026-10-24
+
+- Cache local das listas de depôts por AppID (`~/.local/share/psyche/depots/`): a lista aparece na hora e sobrevive a falhas de rede.
+- Lista de depôts segue o ASSella: depôts compartilhados sempre aparecem, mesmo quando há depôts com `oslist`.
+- Card de Downloads: botão **Baixar jogo** na linha do Sistema, seletor de idioma removido e sem gradiente na aba Jogos.
+
 ## 1.3.5 — 2026-10-23
 
 - Registra o jogo na Steam ao fim do download: grava `appmanifest_<appid>.acf` com `InstalledDepots` e `SizeOnDisk` e copia os manifestos para `steamapps/depotcache/`.
